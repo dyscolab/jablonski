@@ -14,7 +14,7 @@ import pint
 from poincare import Parameter, System, assign
 from typing_extensions import dataclass_transform
 
-from jablonski.types import State, initial
+from jablonski.states import State, initial
 
 
 @dataclass_transform(field_specifiers=(initial,))
