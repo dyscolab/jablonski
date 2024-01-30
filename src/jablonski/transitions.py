@@ -1,3 +1,15 @@
+"""
+    jablonski.transitions
+    ~~~~~~~~~~~~~~~~~~~~~
+
+    Abstraction for transitions.
+
+
+    :copyright: 2024 by redpipy Authors, see AUTHORS for more details.
+    :license: BSD, see LICENSE for more details.
+"""
+
+
 from jablonski.types import State, initial
 from poincare import System, assign, Parameter
 from typing_extensions import dataclass_transform

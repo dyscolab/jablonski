@@ -1,3 +1,14 @@
+"""
+    jablonski.types
+    ~~~~~~~~~~~~~~~~~~~~~
+
+    Abstraction for transitions.
+
+
+    :copyright: 2024 by redpipy Authors, see AUTHORS for more details.
+    :license: BSD, see LICENSE for more details.
+"""
+
 from poincare import Variable, System, Parameter, assign, Simulator, Independent
 from poincare.types import Initial
 from poincare._utils import class_and_instance_method
