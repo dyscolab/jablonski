@@ -1,17 +1,16 @@
 """
-    jablonski.types
-    ~~~~~~~~~~~~~~~~~~~~~
+    jablonski.states
+    ~~~~~~~~~~~~~~~~
 
-    Abstraction for transitions.
+    Molecular states.
 
-
-    :copyright: 2024 by redpipy Authors, see AUTHORS for more details.
+    :copyright: 2024 by jablonski Authors, see AUTHORS for more details.
     :license: BSD, see LICENSE for more details.
 """
 
+
 import pint
-from poincare import Parameter, System, Variable
-from poincare._utils import class_and_instance_method
+from poincare import Independent, System, Variable
 from poincare.types import Initial
 from typing_extensions import dataclass_transform
 
@@ -53,46 +52,5 @@ def initial(
 
 
 @dataclass_transform(field_specifiers=(initial,))
-class FluorescentSystem(System, abstract=True):
-    @class_and_instance_method
-    def fluorescence_spectra(
-        cls, unit: str | pint.Unit
-    ) -> dict[pint.Quantity, Parameter]:
-        # TODO: remove this from here
-        from .transitions import FluorescenceTransition
-
-        dim = ureg.get_dimensionality(unit)
-
-        if dim == DIM_ENERGY:
-            # energy
-            return {
-                transition.energy_difference.to(unit): transition.val
-                for transition in cls._yield(FluorescenceTransition)
-            }
-
-        elif dim == DIM_WAVENUMBER:
-            # wavenumber
-            with ureg.context("spectroscopy"):
-                return {
-                    transition.energy_difference.to(unit): transition.val
-                    for transition in cls._yield(FluorescenceTransition)
-                }
-
-        elif dim == DIM_WAVELENGTH:
-            # wavelength
-            with ureg.context("spectroscopy"):
-                return {
-                    transition.energy_difference.to(unit): transition.val
-                    for transition in cls._yield(FluorescenceTransition)
-                }
-
-        elif dim == DIM_FREQUENCY:
-            # frequency
-            with ureg.context("spectroscopy"):
-                return {
-                    transition.energy_difference.to(unit): transition.val
-                    for transition in cls._yield(FluorescenceTransition)
-                }
-
-        else:
-            raise ValueError(f"Cannot provide the spectra in {unit} ({dim})")
+class SpectroscopicSystem(System, abstract=True):
+    time = Independent(default=0 * ureg.s)
