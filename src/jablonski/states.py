@@ -9,27 +9,63 @@
 """
 
 
+from typing import Literal, overload
+
 import pint
 from poincare import Independent, System, Variable
 from poincare.types import Initial
 from typing_extensions import dataclass_transform
 
-ureg = pint.get_application_registry()
-
-DIM_WAVELENGTH = {"[length]": 1}
-DIM_WAVENUMBER = {"[length]": -1}
-DIM_FREQUENCY = {"[time]": -1}
-DIM_ENERGY = ureg.get_dimensionality("eV")
+from ._typing import SpinMultiplicity
+from ._units import DIM_ENERGY, DIM_FREQUENCY, DIM_WAVELENGTH, DIM_WAVENUMBER, ureg
 
 
-class State(Variable):
+class SingletState(Variable):
+    """A molecular electronic state such that all electron spins are paired;
+    that is, they are antiparallel (oposite spin).
+    """
+
     energy: pint.Quantity
 
 
+class TripletState(Variable):
+    """A molecular electronic state such that an excited electron is not
+    paired with the ground state electron; that is, they are parallel (same spin).
+    """
+
+    energy: pint.Quantity
+
+
+@overload
 def initial(
-    energy: float | pint.Quantity, *, default: Initial | None = None, init: bool = True
-) -> State:
-    state = State(initial=default)
+    energy: float | pint.Quantity,
+    spin_multiplicity: Literal["singlet"] = "singlet",
+    *,
+    default: Initial | None = None,
+) -> SingletState:
+    ...
+
+
+@overload
+def initial(
+    energy: float | pint.Quantity,
+    spin_multiplicity: Literal["triplet"],
+    *,
+    default: Initial | None = None,
+) -> TripletState:
+    ...
+
+
+def initial(
+    energy: float | pint.Quantity,
+    spin_multiplicity: SpinMultiplicity = "singlet",
+    *,
+    default: Initial | None = None,
+) -> SingletState | TripletState:
+    if spin_multiplicity == "singlet":
+        state = SingletState(initial=default)
+    else:
+        state = TripletState(initial=default)
 
     dim = ureg.get_dimensionality(energy)
 
@@ -38,7 +74,7 @@ def initial(
 
     elif dim in (DIM_WAVELENGTH, DIM_WAVENUMBER, DIM_FREQUENCY):
         with ureg.context("spectroscopy"):
-            energy = energy.to("eV")
+            energy = energy.to(ureg.eV)
 
     elif dim != DIM_ENERGY:
         raise ValueError(
