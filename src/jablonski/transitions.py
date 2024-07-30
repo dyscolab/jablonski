@@ -16,16 +16,14 @@
 
 
 import pint
-from poincare import Parameter, System, assign
-from typing_extensions import dataclass_transform
+from poincare import Parameter, assign
 
-from jablonski.states import SingletState, TripletState, initial
+from jablonski.states import SingletState, SpectroscopicSystem, TripletState, initial
 
 ureg = pint.get_application_registry()
 
 
-@dataclass_transform(field_specifiers=(initial,))
-class Absorption(System):
+class Absorption(SpectroscopicSystem):
     """A radiative transition from a lower to a higher electronic state of a molecule.
 
     The energy of the photon is converted to the internal energy of the molecule.
@@ -50,8 +48,7 @@ class Absorption(System):
         assert self.energy_difference >= 0
 
 
-@dataclass_transform(field_specifiers=(initial,))
-class VibrationalRelaxation(System):
+class VibrationalRelaxation(SpectroscopicSystem):
     """A non-radiative transition to a lower vibrational level
     within the same electronic state.
     """
@@ -70,8 +67,7 @@ class VibrationalRelaxation(System):
         assert self.energy_difference >= 0
 
 
-@dataclass_transform(field_specifiers=(initial,))
-class InternalConversion(System):
+class InternalConversion(SpectroscopicSystem):
     """A non-radiative transition between two electronic states
     of the same spin multiplicity.
     """
@@ -90,8 +86,7 @@ class InternalConversion(System):
         assert self.energy_difference >= 0
 
 
-@dataclass_transform(field_specifiers=(initial,))
-class Fluorescence(System):
+class Fluorescence(SpectroscopicSystem):
     """A radiative transition between two electronic states
     of the same spin multiplicity.
     """
@@ -115,8 +110,7 @@ class Fluorescence(System):
         assert self.excited.energy > 0
 
 
-@dataclass_transform(field_specifiers=(initial,))
-class IntersystemCrossing(System):
+class IntersystemCrossing(SpectroscopicSystem):
     """A non-radiative transition between two isoenergetic vibrational levels belonging
     to electronic states of different spin multiplicity, from singlet to triplet.
     """
@@ -135,8 +129,7 @@ class IntersystemCrossing(System):
         assert self.excited.energy == 0
 
 
-@dataclass_transform(field_specifiers=(initial,))
-class ReverseIntersystemCrossing(System):
+class ReverseIntersystemCrossing(SpectroscopicSystem):
     """A non-radiative transition between two isoenergetic vibrational levels belonging
     to electronic states of different spin multiplicity, from triple to singlet.
     """
@@ -155,8 +148,7 @@ class ReverseIntersystemCrossing(System):
         assert self.excited.energy == 0
 
 
-@dataclass_transform(field_specifiers=(initial,))
-class Phosphorescence(System):
+class Phosphorescence(SpectroscopicSystem):
     """A radiative transition between two electronic
     states of different spin multiplicity.
     """
@@ -180,11 +172,10 @@ class Phosphorescence(System):
         assert self.excited.energy > 0
 
 
-@dataclass_transform(field_specifiers=(initial,))
-class EnergyTransferUpconversion(System):
-    sensitizer = initial(0.0, default=0)
-    activator = initial(0.0, default=0)
-    relaxator = initial(0.0, default=0)
+class EnergyTransferUpconversion(SpectroscopicSystem):
+    sensitizer: SingletState = initial(0.0, default=0)
+    activator: SingletState = initial(0.0, default=0)
+    relaxator: SingletState = initial(0.0, default=0)
 
     rate: Parameter = assign(default=0 / ureg.s)
 
