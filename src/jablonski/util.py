@@ -9,7 +9,7 @@
 """
 
 from types import UnionType
-from typing import Any, TypeAlias
+from typing import Any, Literal, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -17,6 +17,7 @@ import pint
 from pint.facets.plain import PlainQuantity
 from poincare import Parameter, Simulator
 
+from ._typing import Time
 from .states import (
     DIM_ENERGY,
     DIM_FREQUENCY,
@@ -24,22 +25,35 @@ from .states import (
     DIM_WAVENUMBER,
     SpectroscopicSystem,
 )
-from .transitions import FluorescenceTransition, PhosphorescenceTransition
+from .transitions import Fluorescence, Phosphorescence
 
 _ClassInfo: TypeAlias = type | UnionType | tuple["_ClassInfo", ...]
 
 ureg = pint.get_application_registry()
 
+SpectraKind = Literal["emission", "fluorescence", "phosphorescence"]
 
-def _spectra(
-    system: SpectroscopicSystem, unit: str | pint.Unit, include: _ClassInfo
+
+def spectra(
+    system: SpectroscopicSystem,
+    unit: str | pint.Unit = ureg.nm,
+    kind: SpectraKind = "emission",
 ) -> dict[pint.Quantity | PlainQuantity[Any], Parameter]:
+    if kind == "emission":
+        include = (Fluorescence, Phosphorescence)
+    elif kind == "fluorescence":
+        include = Fluorescence
+    elif kind == "phosphorescence":
+        include = Phosphorescence
+    else:
+        raise ValueError(f"kind must be {SpectraKind}")
+
     dim = ureg.get_dimensionality(unit)
 
     if dim == DIM_ENERGY:
         # energy
         return {
-            transition.energy_difference.to(unit): transition.val
+            transition.energy_difference.to(unit): transition
             for transition in system._yield(include)
         }
 
@@ -47,7 +61,7 @@ def _spectra(
         # wavenumber
         with ureg.context("spectroscopy"):
             return {
-                transition.energy_difference.to(unit): transition.val
+                transition.energy_difference.to(unit): transition
                 for transition in system._yield(include)
             }
 
@@ -55,7 +69,7 @@ def _spectra(
         # wavelength
         with ureg.context("spectroscopy"):
             return {
-                transition.energy_difference.to(unit): transition.val
+                transition.energy_difference.to(unit): transition
                 for transition in system._yield(include)
             }
 
@@ -63,7 +77,7 @@ def _spectra(
         # frequency
         with ureg.context("spectroscopy"):
             return {
-                transition.energy_difference.to(unit): transition.val
+                transition.energy_difference.to(unit): transition
                 for transition in system._yield(include)
             }
 
@@ -71,33 +85,11 @@ def _spectra(
         raise ValueError(f"Cannot provide the spectra in {unit} ({dim})")
 
 
-def fluorescence_spectra(
-    system: SpectroscopicSystem, unit: str | pint.Unit
-) -> dict[pint.Quantity | PlainQuantity[Any], Parameter]:
-    return _spectra(system, unit, FluorescenceTransition)
-
-
-def phosphorescence_spectra(
-    system: SpectroscopicSystem, unit: str | pint.Unit
-) -> dict[pint.Quantity | PlainQuantity[Any], Parameter]:
-    return _spectra(system, unit, PhosphorescenceTransition)
-
-
-def emission_spectra(
-    system: SpectroscopicSystem, unit: str | pint.Unit
-) -> dict[pint.Quantity | PlainQuantity[Any], Parameter]:
-    return _spectra(system, unit, (FluorescenceTransition, PhosphorescenceTransition))
-
-
-Power: TypeAlias = float | int
-Time: TypeAlias = float | int
-
-
 def _simple_time_resolved_emission(
     system: SpectroscopicSystem,
     step: Time,
     window: Time,
-    excitation: tuple[Parameter, Power, Time],
+    excitation: tuple[Parameter, Time],
     emission: dict[str, float],
 ):
     """Single transition square excitation."""
