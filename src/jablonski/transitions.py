@@ -14,6 +14,7 @@
     :license: BSD, see LICENSE for more details.
 """
 
+import warnings
 
 import pint
 from poincare import Parameter, assign
@@ -21,6 +22,16 @@ from poincare import Parameter, assign
 from jablonski.states import SingletState, SpectroscopicSystem, TripletState, initial
 
 ureg = pint.get_application_registry()
+
+
+def _check_range(obj, attr, mn, mx):
+    rate = getattr(obj, attr).m_as("Hz")
+    if not (mx >= rate >= mn):
+        warnings.warn(
+            "{obj!r} rate ({rate} Hz) is not within "
+            "expected range high ({mn}-{mx} Hz).",
+            stacklevel=2,
+        )
 
 
 class Absorption(SpectroscopicSystem):
@@ -46,6 +57,7 @@ class Absorption(SpectroscopicSystem):
 
     def _check(self):
         assert self.energy_difference >= 0
+        _check_range(self, "rate", 1e14, 1e16)
 
 
 class VibrationalRelaxation(SpectroscopicSystem):
@@ -65,6 +77,7 @@ class VibrationalRelaxation(SpectroscopicSystem):
 
     def _check(self):
         assert self.energy_difference >= 0
+        _check_range(self, "rate", 1e10, 1e12)
 
 
 class InternalConversion(SpectroscopicSystem):
@@ -84,6 +97,7 @@ class InternalConversion(SpectroscopicSystem):
 
     def _check(self):
         assert self.energy_difference >= 0
+        _check_range(self, "rate", 1e11, 1e9)
 
 
 class Fluorescence(SpectroscopicSystem):
@@ -108,6 +122,7 @@ class Fluorescence(SpectroscopicSystem):
 
     def _check(self):
         assert self.excited.energy > 0
+        _check_range(self, "rate", 1e10, 1e7)
 
 
 class IntersystemCrossing(SpectroscopicSystem):
@@ -127,6 +142,7 @@ class IntersystemCrossing(SpectroscopicSystem):
 
     def _check(self):
         assert self.excited.energy == 0
+        _check_range(self, "rate", 1e10, 1e8)
 
 
 class ReverseIntersystemCrossing(SpectroscopicSystem):
@@ -146,6 +162,7 @@ class ReverseIntersystemCrossing(SpectroscopicSystem):
 
     def _check(self):
         assert self.excited.energy == 0
+        _check_range(self, "rate", 1e10, 1e8)
 
 
 class Phosphorescence(SpectroscopicSystem):
@@ -170,6 +187,7 @@ class Phosphorescence(SpectroscopicSystem):
 
     def _check(self):
         assert self.excited.energy > 0
+        _check_range(self, "rate", 1e6, 1)
 
 
 class EnergyTransferUpconversion(SpectroscopicSystem):
