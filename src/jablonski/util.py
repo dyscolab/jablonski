@@ -11,13 +11,10 @@
 from types import UnionType
 from typing import Any, Literal, TypeAlias
 
-import numpy as np
-import pandas as pd
 import pint
 from pint.facets.plain import PlainQuantity
-from poincare import Parameter, Simulator
 
-from ._typing import Time
+from ._typing import RadiativeDecay
 from .states import (
     DIM_ENERGY,
     DIM_FREQUENCY,
@@ -34,11 +31,11 @@ ureg = pint.get_application_registry()
 SpectraKind = Literal["emission", "fluorescence", "phosphorescence"]
 
 
-def spectra(
+def emission_transitions(
     system: SpectroscopicSystem,
     unit: str | pint.Unit = ureg.nm,
     kind: SpectraKind = "emission",
-) -> dict[pint.Quantity | PlainQuantity[Any], Parameter]:
+) -> dict[pint.Quantity | PlainQuantity[Any], RadiativeDecay]:
     if kind == "emission":
         include = (Fluorescence, Phosphorescence)
     elif kind == "fluorescence":
@@ -83,55 +80,3 @@ def spectra(
 
     else:
         raise ValueError(f"Cannot provide the spectra in {unit} ({dim})")
-
-
-def _simple_time_resolved_emission(
-    system: SpectroscopicSystem,
-    step: Time,
-    window: Time,
-    excitation: tuple[Parameter, Time],
-    emission: dict[str, float],
-):
-    """Single transition square excitation."""
-
-    excitation_state, excitation_power, excitation_width = excitation
-    assert excitation_width < window
-
-    sim = Simulator(system)
-
-    out = []
-
-    sol = sim.solve(
-        values={excitation_state: excitation_power},
-        save_at=np.arange(step),
-        t_span=(0, excitation_width),
-    )
-    out.append(sol)
-
-    sol = sim.solve = sol.iloc[-1]
-
-    out.append(sol)
-
-    for transition, factor in emission.items():
-        sol["full_emission"] += factor * sol[transition]
-
-    return pd.concat(out)
-
-
-def simple_time_resolved_emission(
-    system: SpectroscopicSystem,
-    step: Time,
-    window: Time,
-    excitation: Parameter,
-    emission: Parameter,
-):
-    out = _simple_time_resolved_emission(
-        system, step, window, (excitation, 1, 1e-10), {emission: 1}
-    )
-
-    normalization_factor = out["full_emission"].sum()
-
-    out["full_emission"] /= normalization_factor
-    out[emission] /= normalization_factor
-
-    return out

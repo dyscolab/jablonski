@@ -35,7 +35,8 @@ def _check_range(obj, attr, mn, mx):
 
 
 class Absorption(SpectroscopicSystem):
-    """A radiative transition from a lower to a higher electronic state of a molecule.
+    """A radiative transition from a lower to a higher electronic state
+    of a molecule (both singlets).
 
     The energy of the photon is converted to the internal energy of the molecule.
     """
@@ -57,6 +58,34 @@ class Absorption(SpectroscopicSystem):
 
     def _check(self):
         assert self.energy_difference >= 0
+        _check_range(self, "rate", 1e14, 1e16)
+
+
+class TripletTripletAbsorption(SpectroscopicSystem):
+    """A radiative transition from a lower to a higher electronic state
+    of a molecule (both triplets).
+
+    The energy of the photon is converted to the internal energy of the molecule.
+    """
+
+    ground: TripletState = initial(0.0, default=0, spin_multiplicity="triplet")
+    excited: TripletState = initial(0.0, default=0, spin_multiplicity="triplet")
+
+    # TODO: what is the correct timescale
+    rate: Parameter = assign(default=1e15 / ureg.s)
+
+    pump = rate * ground
+
+    down = ground.derive() << -pump
+    up = excited.derive() << pump
+
+    @property
+    def energy_difference(self) -> pint.Quantity:
+        return self.excited.energy - self.ground.energy
+
+    def _check(self):
+        assert self.energy_difference >= 0
+        # TODO: what is the correct timescale
         _check_range(self, "rate", 1e14, 1e16)
 
 

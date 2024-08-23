@@ -17,8 +17,10 @@ import pandas as pd
 from poincare import Simulator
 from poincare.simulator import Components, Initial, Symbol
 
+from . import util
 from ._typing import Pumper, Time
 from ._units import DEFAULT_DELTA, ureg
+from .states import SpectroscopicSystem
 
 
 def piecewise(
@@ -27,9 +29,8 @@ def piecewise(
     events: dict[Time, Mapping[Components, Initial | Symbol | None]],
     save_at: npt.NDArray[np.float64],
 ) -> pd.DataFrame:
-    assert sim.transform is None
-
-    t_events = np.sort(list(events.keys()))
+    event_keys = [k.m_as("s") for k in events.keys()]
+    t_events = np.sort(event_keys)
     save_at = np.union1d(save_at, t_events)
     pos = np.searchsorted(save_at, t_events)
     save_ats = np.split(save_at, pos + 1)
@@ -49,17 +50,12 @@ def piecewise(
             if k in df:
                 df[k].values[-1] = v
 
-        for k, v in df.iloc[-1].items():
-            try:
-                k = getattr(sim.model, k)
-            except AttributeError:
-                raise AttributeError(f"Could not find attribute {k} in model")
-                # some transformed variables might not be part of the state
-                continue
-            state[k] = v
+        state.update(df.attrs["last_state"])
         dfs.append(df)
 
-    return pd.concat(dfs)
+    df = pd.concat(dfs, axis=0)
+    # df = df.d
+    return df
 
 
 def step_excitation(
@@ -85,3 +81,22 @@ def delta_excitation(
     width = DEFAULT_DELTA
     height = area / width
     return pulse_excitation(excitation_transition, height, width, start)
+
+
+def time_resolved_emission(
+    system: SpectroscopicSystem,
+    excitation: dict[Time, Mapping[Components, Initial | Symbol | None]],
+    save_at: npt.NDArray[np.float64],
+    kind: util.SpectraKind = "emission",
+) -> pd.DataFrame:
+    """Single transition square excitation."""
+
+    lines = util.emission_transitions(system, kind=kind)
+
+    transform = {
+        f"_wl_{wavelength.m:.3f}_{transition.name}": transition.radiative_decay
+        for wavelength, transition in lines.items()
+    }
+
+    sim = Simulator(system, transform=transform)
+    return piecewise(sim, events=excitation, save_at=save_at)
