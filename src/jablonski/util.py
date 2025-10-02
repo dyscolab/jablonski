@@ -9,12 +9,12 @@
 """
 
 from types import UnionType
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias, Generator
 
 import pint
 from pint.facets.plain import PlainQuantity
 
-from ._typing import RadiativeDecay
+from ._typing import RadiativeDecay, Pumper
 from .states import (
     DIM_ENERGY,
     DIM_FREQUENCY,
@@ -31,11 +31,19 @@ ureg = pint.get_application_registry()
 SpectraKind = Literal["emission", "fluorescence", "phosphorescence"]
 
 
+def excitation_transitions(
+    system: SpectroscopicSystem,
+) -> Generator[Pumper, None, None]:
+
+    for transition in system._yield(SpectroscopicSystem):
+        if isinstance(transition, Pumper):
+            yield transition
+
+
 def emission_transitions(
     system: SpectroscopicSystem,
-    unit: str | pint.Unit = ureg.nm,
     kind: SpectraKind = "emission",
-) -> dict[pint.Quantity | PlainQuantity[Any], RadiativeDecay]:
+) -> Generator[RadiativeDecay, None, None]:
     if kind == "emission":
         include = (Fluorescence, Phosphorescence)
     elif kind == "fluorescence":
@@ -45,6 +53,12 @@ def emission_transitions(
     else:
         raise ValueError(f"kind must be {SpectraKind}")
 
+    for transition in system._yield(include):
+        if isinstance(transition, RadiativeDecay):
+            yield transition
+
+
+def convert():
     dim = ureg.get_dimensionality(unit)
 
     if dim == DIM_ENERGY:

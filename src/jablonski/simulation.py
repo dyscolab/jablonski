@@ -11,6 +11,7 @@
 from itertools import chain, pairwise
 from typing import Mapping
 
+import pint
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -18,6 +19,7 @@ from poincare import Simulator
 from poincare.simulator import Components, Initial, Symbol
 
 from . import util
+from .util import SpectraKind
 from ._typing import Pumper, Time
 from ._units import DEFAULT_DELTA, ureg
 from .states import SpectroscopicSystem
@@ -83,7 +85,7 @@ def delta_excitation(
     return pulse_excitation(excitation_transition, height, width, start)
 
 
-def time_resolved_emission(
+def spectral_time_resolved_emission(
     system: SpectroscopicSystem,
     excitation: dict[Time, Mapping[Components, Initial | Symbol | None]],
     save_at: npt.NDArray[np.float64],
@@ -91,12 +93,63 @@ def time_resolved_emission(
 ) -> pd.DataFrame:
     """Single transition square excitation."""
 
-    lines = util.emission_transitions(system, kind=kind)
-
-    transform = {
-        f"_wl_{wavelength.m:.3f}_{transition.name}": transition.radiative_decay
-        for wavelength, transition in lines.items()
+    
+    lines = {
+        f"line{ndx}": transition
+        for ndx, transition in enumerate(util.emission_transitions(system, kind=kind))
     }
 
+    transform = {k: v.radiative_decay for k, v in lines.items()}
+
     sim = Simulator(system, transform=transform)
-    return piecewise(sim, events=excitation, save_at=save_at)
+    df = piecewise(sim, events=excitation, save_at=save_at)
+    df.attrs["lines"] = lines
+    return df
+
+
+def spectral_steady_state_emission(
+    system: SpectroscopicSystem,
+    excitation_transition: Pumper,
+    height: float,
+    kind: util.SpectraKind = "emission",
+) -> pd.DataFrame:
+    
+    lines = {
+        f"line{ndx}": transition
+        for ndx, transition in enumerate(util.emission_transitions(system, kind=kind))
+    }
+
+    transform = {k: v.radiative_decay for k, v in lines.items()}
+
+    sim = Simulator(system, transform=transform)
+    df = piecewise(
+        sim, 
+        events=step_excitation(excitation_transition, height), 
+        save_at=np.asarray([0, 100]),
+    ).iloc[[-1]]
+    df.attrs["lines"] = lines
+    return df
+    
+
+def time_resolved_emission()
+
+
+def excitation_spectra(
+        excitation: pint.Quantity | tuple[pint.Quantity, pint.Quantity],
+        emission: pint.Quantity | tuple[pint.Quantity, pint.Quantity],
+    ): 
+    """CW excitation spectra.
+    """
+
+
+def emission_spectra(
+        system: SpectroscopicSystem,
+        excitation_transition: pint.Quantity | tuple[pint.Quantity, pint.Quantity],
+        height: float, 
+        unit: str | pint.Unit = ureg.nm,
+        kind: SpectraKind = "emission",
+    ): 
+    """CW emission spectra.
+    """
+    # steady_state_emission(system, excitation_transition, height, kind)
+    # for k, v in util.emission_transitions(system, unit, kind).items()
