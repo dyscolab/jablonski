@@ -1,25 +1,32 @@
 """
-    jablonski.transitions
-    ~~~~~~~~~~~~~~~~~~~~~
+jablonski.transitions
+~~~~~~~~~~~~~~~~~~~~~
 
-    Transitions between molecular states.
+Transitions between molecular states.
 
-    A few rules to make the classes:
-    - the states appear in the class (and in the init) from source to target.
+A few rules to make the classes:
+- the states appear in the class (and in the init) from source to target.
 
 
-    # Ideas taken from https://www.edinst.com/de/blog/jablonski-diagram/
+# Ideas taken from https://www.edinst.com/de/blog/jablonski-diagram/
 
-    :copyright: 2024 by jablonski Authors, see AUTHORS for more details.
-    :license: BSD, see LICENSE for more details.
+:copyright: 2024 by jablonski Authors, see AUTHORS for more details.
+:license: BSD, see LICENSE for more details.
 """
 
 import warnings
 
 import pint
 from poincare import Parameter, assign
+from poincare.reactions import MassAction
 
-from jablonski.states import SingletState, SpectroscopicSystem, TripletState, initial
+from jablonski.states import (
+    SingletState,
+    SpectroscopicSystem,
+    SpinState,
+    TripletState,
+    initial,
+)
 
 ureg = pint.get_application_registry()
 
@@ -47,10 +54,9 @@ class Absorption(SpectroscopicSystem):
     # timescale 10^-15 s
     rate: Parameter = assign(default=1e15 / ureg.s)
 
-    pump = rate * ground
+    pump: Parameter = assign(default=0)
 
-    down = ground.derive() << -pump
-    up = excited.derive() << pump
+    absorption = MassAction(reactants=[ground], products=[excited], rate=rate * pump)
 
     @property
     def energy_difference(self) -> pint.Quantity:
@@ -74,10 +80,9 @@ class TripletTripletAbsorption(SpectroscopicSystem):
     # TODO: what is the correct timescale
     rate: Parameter = assign(default=1e15 / ureg.s)
 
-    pump = rate * ground
+    pump: Parameter = assign(default=0)
 
-    down = ground.derive() << -pump
-    up = excited.derive() << pump
+    absorption = MassAction(reactants=[ground], products=[excited], rate=pump * rate)
 
     @property
     def energy_difference(self) -> pint.Quantity:
@@ -94,11 +99,13 @@ class VibrationalRelaxation(SpectroscopicSystem):
     within the same electronic state.
     """
 
-    high: SingletState = initial(0.0, default=0)
-    low: SingletState = initial(0.0, default=0)
+    high: SpinState = initial(0.0, default=0)
+    low: SpinState = initial(0.0, default=0)
 
     # timescale 10^-12 s and 10^-10 s
     rate: Parameter = assign(default=1e12 / ureg.s)
+
+    non_radiative_decay = MassAction(reactants=[high], products=[low], rate=rate)
 
     @property
     def energy_difference(self) -> pint.Quantity:
@@ -114,11 +121,14 @@ class InternalConversion(SpectroscopicSystem):
     of the same spin multiplicity.
     """
 
+    # TODO: what does this do if it doesn't have equations?
     high: SingletState = initial(0.0, default=0)
     low: SingletState = initial(0.0, default=0)
 
     # timescale 10^-11 s and 10^-9 s, sometimes slower.
     rate: Parameter = assign(default=1e12 / ureg.s)
+
+    non_radiative_decay = MassAction(reactants=[high], products=[low], rate=rate)
 
     @property
     def energy_difference(self) -> pint.Quantity:
@@ -140,10 +150,7 @@ class Fluorescence(SpectroscopicSystem):
     # timescale 10^-10 s and 10^-7 s.
     rate: Parameter = assign(default=1e10 / ureg.s)
 
-    radiative_decay = rate * excited
-
-    down = ground.derive() << radiative_decay
-    up = excited.derive() << -radiative_decay
+    radiative_decay = MassAction(reactants=[excited], products=[ground], rate=rate)
 
     @property
     def energy_difference(self) -> pint.Quantity:
@@ -165,12 +172,16 @@ class IntersystemCrossing(SpectroscopicSystem):
     # timescale 10^−8 s to 10^−3 s
     rate: Parameter = assign(default=1e8 / ureg.s)
 
+    non_radiative_transition = MassAction(
+        reactants=[source], products=[target], rate=rate
+    )
+
     @property
     def energy_difference(self) -> pint.Quantity:
         return self.source.energy - self.target.energy
 
     def _check(self):
-        assert self.excited.energy == 0
+        assert self.energy_difference == 0
         _check_range(self, "rate", 1e10, 1e8)
 
 
@@ -185,12 +196,16 @@ class ReverseIntersystemCrossing(SpectroscopicSystem):
     # timescale 10^−8 s to 10^−3 s
     rate: Parameter = assign(default=1e8 / ureg.s)
 
+    non_radiative_transition = MassAction(
+        reactants=[source], products=[target], rate=rate
+    )
+
     @property
     def energy_difference(self) -> pint.Quantity:
         return self.source.energy - self.target.energy
 
     def _check(self):
-        assert self.excited.energy == 0
+        assert self.energy_difference == 0
         _check_range(self, "rate", 1e10, 1e8)
 
 
@@ -204,11 +219,7 @@ class Phosphorescence(SpectroscopicSystem):
 
     # timescale 10^-6 s to 10 s range.
     rate: Parameter = assign(default=1e6 / ureg.s)
-
-    radiative_decay = rate * excited
-
-    down = ground.derive() << radiative_decay
-    up = excited.derive() << -radiative_decay
+    radiative_decay = MassAction(reactants=[excited], products=[ground], rate=rate)
 
     @property
     def energy_difference(self) -> pint.Quantity:
@@ -226,8 +237,6 @@ class EnergyTransferUpconversion(SpectroscopicSystem):
 
     rate: Parameter = assign(default=0 / ureg.s)
 
-    value = rate * sensitizer**2
-
-    sensitization = sensitizer.derive() << -2 * value
-    activation = activator.derive() << value
-    relaxation = relaxator.derive() << value
+    upconversion = MassAction(
+        reactants=[2 * sensitizer], products=[activator, relaxator], rate=rate
+    )

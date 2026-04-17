@@ -1,11 +1,11 @@
 """
-    jablonski._typing
-    ~~~~~~~~~~~~~~~~~
+jablonski._typing
+~~~~~~~~~~~~~~~~~
 
-    Types and type alias.
+Types and type alias.
 
-    :copyright: 2024 by jablonski Authors, see AUTHORS for more details.
-    :license: BSD, see LICENSE for more details.
+:copyright: 2024 by jablonski Authors, see AUTHORS for more details.
+:license: BSD, see LICENSE for more details.
 """
 
 from typing import Literal, Protocol, TypeAlias, runtime_checkable
