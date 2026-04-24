@@ -1,13 +1,12 @@
 """
-    jablonski.states
-    ~~~~~~~~~~~~~~~~
+jablonski.states
+~~~~~~~~~~~~~~~~
 
-    Molecular states.
+Molecular states.
 
-    :copyright: 2024 by jablonski Authors, see AUTHORS for more details.
-    :license: BSD, see LICENSE for more details.
+:copyright: 2024 by jablonski Authors, see AUTHORS for more details.
+:license: BSD, see LICENSE for more details.
 """
-
 
 from typing import Literal, overload
 
@@ -20,20 +19,28 @@ from ._typing import SpinMultiplicity
 from ._units import DIM_ENERGY, DIM_FREQUENCY, DIM_WAVELENGTH, DIM_WAVENUMBER, ureg
 
 
-class SingletState(Variable):
+class SpinState(Variable):
+    """Base class for singlet and triplet states."""
+
+    energy: pint.Quantity
+
+    multiplicity = None
+
+
+class SingletState(SpinState):
     """A molecular electronic state such that all electron spins are paired;
     that is, they are antiparallel (oposite spin).
     """
 
-    energy: pint.Quantity
+    multiplicity = "singlet"
 
 
-class TripletState(Variable):
+class TripletState(SpinState):
     """A molecular electronic state such that an excited electron is not
     paired with the ground state electron; that is, they are parallel (same spin).
     """
 
-    energy: pint.Quantity
+    multiplicity = "triplet"
 
 
 @overload
@@ -42,8 +49,7 @@ def initial(
     spin_multiplicity: Literal["singlet"] = "singlet",
     *,
     default: Initial | None = None,
-) -> SingletState:
-    ...
+) -> SingletState: ...
 
 
 @overload
@@ -52,8 +58,7 @@ def initial(
     spin_multiplicity: Literal["triplet"],
     *,
     default: Initial | None = None,
-) -> TripletState:
-    ...
+) -> TripletState: ...
 
 
 def initial(
@@ -90,3 +95,10 @@ def initial(
 @dataclass_transform(field_specifiers=(initial,))
 class SpectroscopicSystem(System, abstract=True):
     time = Independent(default=0 * ureg.s)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._check()
+
+    def _check(self):
+        pass

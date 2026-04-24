@@ -32,7 +32,7 @@ ureg = pint.get_application_registry()
 
 
 def _check_range(obj, attr, mn, mx):
-    rate = getattr(obj, attr).m_as("Hz")
+    rate = getattr(obj, attr).default.m_as("Hz")
     if not (mx >= rate >= mn):
         warnings.warn(
             "{obj!r} rate ({rate} Hz) is not within "
@@ -63,7 +63,10 @@ class Absorption(SpectroscopicSystem):
         return self.excited.energy - self.ground.energy
 
     def _check(self):
-        assert self.energy_difference >= 0
+        if self.energy_difference < 0:
+            raise ValueError(
+                "Excited state energy must be higher than ground state energy"
+            )
         _check_range(self, "rate", 1e14, 1e16)
 
 
@@ -89,7 +92,10 @@ class TripletTripletAbsorption(SpectroscopicSystem):
         return self.excited.energy - self.ground.energy
 
     def _check(self):
-        assert self.energy_difference >= 0
+        if self.energy_difference < 0:
+            raise ValueError(
+                "excited state energy must be higher than ground state energy."
+            )
         # TODO: what is the correct timescale
         _check_range(self, "rate", 1e14, 1e16)
 
@@ -112,7 +118,12 @@ class VibrationalRelaxation(SpectroscopicSystem):
         return self.high.energy - self.low.energy
 
     def _check(self):
-        assert self.energy_difference >= 0
+        if self.energy_difference < 0:
+            raise ValueError("High state energy must be higher than low state energy")
+        if self.high.multiplicity != self.low.multiplicity:
+            raise TypeError(
+                "Both states must have the same multiplicity in a vibrational relaxation"
+            )
         _check_range(self, "rate", 1e10, 1e12)
 
 
@@ -121,9 +132,8 @@ class InternalConversion(SpectroscopicSystem):
     of the same spin multiplicity.
     """
 
-    # TODO: what does this do if it doesn't have equations?
-    high: SingletState = initial(0.0, default=0)
-    low: SingletState = initial(0.0, default=0)
+    high: SpinState = initial(0.0, default=0)
+    low: SpinState = initial(0.0, default=0)
 
     # timescale 10^-11 s and 10^-9 s, sometimes slower.
     rate: Parameter = assign(default=1e12 / ureg.s)
@@ -135,7 +145,12 @@ class InternalConversion(SpectroscopicSystem):
         return self.high.energy - self.low.energy
 
     def _check(self):
-        assert self.energy_difference >= 0
+        if self.energy_difference < 0:
+            raise ValueError("High state energy must be higher than low state energy")
+        if self.high.multiplicity != self.low.multiplicity:
+            raise TypeError(
+                "Both states must have the same multiplicity in an internal conversion"
+            )
         _check_range(self, "rate", 1e11, 1e9)
 
 
@@ -144,8 +159,8 @@ class Fluorescence(SpectroscopicSystem):
     of the same spin multiplicity.
     """
 
-    excited: SingletState = initial(0.0, default=0)
-    ground: SingletState = initial(0.0, default=0)
+    excited: SpinState = initial(0.0, default=0)
+    ground: SpinState = initial(0.0, default=0)
 
     # timescale 10^-10 s and 10^-7 s.
     rate: Parameter = assign(default=1e10 / ureg.s)
@@ -157,7 +172,14 @@ class Fluorescence(SpectroscopicSystem):
         return self.excited.energy - self.ground.energy
 
     def _check(self):
-        assert self.excited.energy > 0
+        if self.energy_difference <= 0:
+            raise ValueError(
+                "Excited state energy must be higher than ground state energy"
+            )
+        if self.excited.multiplicity != self.ground.multiplicity:
+            raise TypeError(
+                "Both states must have the same multiplicity in fluorescence, use Phosphorescence for radiative transitions with different spin multiplicity"
+            )
         _check_range(self, "rate", 1e10, 1e7)
 
 
@@ -181,7 +203,10 @@ class IntersystemCrossing(SpectroscopicSystem):
         return self.source.energy - self.target.energy
 
     def _check(self):
-        assert self.energy_difference == 0
+        if self.excited.energy != 0:
+            raise ValueError(
+                "Source and target states energy must be equal in an intersystem crossing."
+            )
         _check_range(self, "rate", 1e10, 1e8)
 
 
@@ -205,7 +230,10 @@ class ReverseIntersystemCrossing(SpectroscopicSystem):
         return self.source.energy - self.target.energy
 
     def _check(self):
-        assert self.energy_difference == 0
+        if self.excited.energy != 0:
+            raise ValueError(
+                "Source and target states energy must be equal in an intersystem crossing."
+            )
         _check_range(self, "rate", 1e10, 1e8)
 
 
@@ -214,8 +242,8 @@ class Phosphorescence(SpectroscopicSystem):
     states of different spin multiplicity.
     """
 
-    excited: TripletState = initial(0.0, "triplet", default=0)
-    ground: SingletState = initial(0.0, default=0)
+    excited: SpinState = initial(0.0, "triplet", default=0)
+    ground: SpinState = initial(0.0, default=0)
 
     # timescale 10^-6 s to 10 s range.
     rate: Parameter = assign(default=1e6 / ureg.s)
@@ -226,7 +254,16 @@ class Phosphorescence(SpectroscopicSystem):
         return self.excited.energy - self.ground.energy
 
     def _check(self):
-        assert self.excited.energy > 0
+        if self.energy_difference <= 0:
+            raise ValueError(
+                "Excited state energy must be higher than ground state energy"
+            )
+        if self.excited.multiplicity != self.ground.multiplicity:
+            raise TypeError(
+                "Both states must have different multiplicity in phosphorescence, use Fluorescence for radiative transitions with the same spin multiplicity"
+            )
+        _check_range(self, "rate", 1e10, 1e7)
+
         _check_range(self, "rate", 1e6, 1)
 
 
