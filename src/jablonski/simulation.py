@@ -300,8 +300,8 @@ def graph_spectra(
     ax.add_collection(lc)
     ax.set_xlim(points.min(), points.max())
     ax.set_ylim(spectrum.min(), spectrum.max())
+    ax.set_xlabel(f"Wavelenght [ {unit} ]")
     ax.set_ylabel("Emission [ photons/s ]")
-    ax.set_ylabel(f"Wavelenght [ {unit} ]")
     return fig, ax
 
 
