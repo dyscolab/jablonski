@@ -41,7 +41,6 @@ def piecewise(
     pos = np.searchsorted(save_at, t_events)
     save_ats = np.split(save_at, pos + 1)
     t_spans = pairwise(chain((0,), t_events, (save_at[-1],)))
-    # TODO: support save_at with units?
 
     dss = []
     state = {}
@@ -129,7 +128,6 @@ def spectral_steady_state_emission(
     }
 
     transform = {k: v.radiative_decay.rate_law for k, v in lines.items()}
-
     sim = Simulator(system, transform=transform)
     steady = SteadyState()
 
@@ -144,7 +142,6 @@ def spectral_steady_state_emission(
             for excitation, value in zip(excitation_transition, height)
         },
     )
-    # ds = steady.solve(sim, values={excitation_transition.pump: height})
     if not join_by_energy:
         for line in lines:
             ds.attrs[line] = lines[line].energy_difference
@@ -177,13 +174,6 @@ def steady_state_emission(
 
     summed = spectral.to_array().sum(dim="variable")
     return summed.to_dataset(name="emission")
-
-
-def excitation_spectra(
-    excitation: pint.Quantity | tuple[pint.Quantity, pint.Quantity],
-    emission: pint.Quantity | tuple[pint.Quantity, pint.Quantity],
-):
-    """CW excitation spectra."""
 
 
 # TODO: how to excite multiple pumpers? Can't be a dictionary because they are not hashable.
@@ -222,6 +212,20 @@ def emission_spectra(
     return da
 
 
+def excitation_spectra(
+    system: SpectroscopicSystem,
+    height: float | Iterable[float],
+    unit: str | pint.Unit = ureg.nm,
+):
+    """CW excitation spectra."""
+    results = {}
+    for pumper in system._yield(Pumper):
+        results[str(pumper)] = emission_spectra(
+            system, excitation_transition=pumper, height=height, unit=unit
+        )
+    return xr.Dataset(results)
+
+
 def widened_emission_spectra(
     system: SpectroscopicSystem,
     excitation_transition: Pumper | Iterable[Pumper],
@@ -245,7 +249,6 @@ def widened_emission_spectra(
         for line, energy in spectral.attrs.items()
     }
 
-    # TODO: What profile should lines have? Should it be an argument with doppler/natural?
     def gaussian(x, mu, A, sigma):
         return A * np.exp(-(((x - mu) / sigma) ** 2))
 
@@ -272,6 +275,76 @@ def widened_emission_spectra(
     unit._REGISTRY.force_ndarray_like = False
     da.name = "spectrum"
     return da
+
+
+# def widened_emission_spectra(
+#     system: SpectroscopicSystem,
+#     excitation_transition: Pumper | Iterable[Pumper],
+#     height: float | Iterable[float],
+#     unit: str | pint.Unit = ureg.nm,
+#     kind: SpectraKind = "emission",
+#     samples: Iterable[float] = np.linspace(380, 700, 1000),
+#     width: float | Literal["natural"] = "natural",
+#     # Default temperature for doppler broadening, 25 C = 298 K
+# ):
+#     """CW emission spectra."""
+#     if isinstance(unit, str):
+#         unit = ureg[unit]
+
+#     spectral = spectral_steady_state_emission(
+#         system, excitation_transition, height, kind
+#     )
+#     h = constants.h * ureg.J * ureg.s
+#     c = constants.c * ureg.m / ureg.s
+#     wavelenghts = {
+#         line: (c * h / energy).to(unit).magnitude
+#         for line, energy in spectral.attrs.items()
+#     }
+#     if width == "natural":
+#         linewidths = {
+#             f"line_{transition}": (
+#                 transition.radiative_decay.rate.default / 2 * np.pi / c * unit**2
+#             )
+#             .to(unit)
+#             .magnitude
+#             * wavelenghts[f"line_{transition}"]
+#             for transition in util.emission_transitions(system, kind=kind)
+#         }
+
+#     # TODO: What profile should lines have? Should it be an argument with doppler/natural?
+#     # if width == "doppler":
+#     #     def gaussian(x, mu, A, sigma):
+#     #         return A * np.exp(-(((x - mu) / sigma) ** 2))
+#     def lorentzian(x, x0, A, gamma):
+#         return A / ((x - x0) ** 2 + (gamma / 2) ** 2)
+
+#     if isinstance(samples, pint.Quantity):
+#         samples = samples.to(unit).magnitude
+
+#     spectrum = np.zeros_like(samples, dtype=float)
+
+#     for line, wavelenght in wavelenghts.items():
+#         if width == "natural":
+#             linewidth = linewidths[line].rate_law
+#         else:
+#             linewidth = width
+#         spectrum += lorentzian(
+#             samples,
+#             wavelenght,
+#             spectral[line].values.item(),
+#             linewidth,
+#         )
+
+#     import pint_xarray
+
+# da = xr.DataArray(
+#     data=spectrum,
+#     dims="wavelenght",
+#     coords={"wavelenght": samples},
+# ).pint.quantify(unit, pint_xarray.setup_registry(unit._REGISTRY))
+# unit._REGISTRY.force_ndarray_like = False
+# da.name = "spectrum"
+# return da
 
 
 def graph_spectra(
