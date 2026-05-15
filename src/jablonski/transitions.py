@@ -151,7 +151,7 @@ class InternalConversion(SpectroscopicSystem):
     low: SpinState = initial(0.0, default=0)
 
     # timescale 10^-11 s and 10^-9 s, sometimes slower.
-    rate: Parameter = assign(default=1e12 / ureg.s)
+    rate: Parameter = assign(default=1e11 / ureg.s)
 
     non_radiative_decay = MassAction(reactants=[high], products=[low], rate=rate)
 
@@ -171,7 +171,7 @@ class InternalConversion(SpectroscopicSystem):
             raise TypeError(
                 "Both states must have the same multiplicity in an internal conversion"
             )
-        _check_range(self, "rate", 1e11, 1e9)
+        _check_range(self, "rate", 1e9, 1e11)
 
 
 class Fluorescence(SpectroscopicSystem):
@@ -205,7 +205,7 @@ class Fluorescence(SpectroscopicSystem):
             raise TypeError(
                 "Both states must have the same multiplicity in fluorescence, use Phosphorescence for radiative transitions with different spin multiplicity"
             )
-        _check_range(self, "rate", 1e10, 1e7)
+        _check_range(self, "rate", 1e7, 1e10)
 
 
 class IntersystemCrossing(SpectroscopicSystem):
@@ -233,11 +233,11 @@ class IntersystemCrossing(SpectroscopicSystem):
         return self.source.energy - self.target.energy
 
     def _check(self):
-        if self.excited.energy != 0:
+        if self.energy_difference != 0:
             raise ValueError(
                 "Source and target states energy must be equal in an intersystem crossing."
             )
-        _check_range(self, "rate", 1e10, 1e8)
+        _check_range(self, "rate", 1e8, 1e10)
 
 
 class ReverseIntersystemCrossing(SpectroscopicSystem):
@@ -265,11 +265,11 @@ class ReverseIntersystemCrossing(SpectroscopicSystem):
         return self.source.energy - self.target.energy
 
     def _check(self):
-        if self.excited.energy != 0:
+        if self.energy_difference != 0:
             raise ValueError(
                 "Source and target states energy must be equal in an intersystem crossing."
             )
-        _check_range(self, "rate", 1e10, 1e8)
+        _check_range(self, "rate", 1e8, 1e10)
 
 
 class Phosphorescence(SpectroscopicSystem):
@@ -302,9 +302,7 @@ class Phosphorescence(SpectroscopicSystem):
             raise TypeError(
                 "Both states must have different multiplicity in phosphorescence, use Fluorescence for radiative transitions with the same spin multiplicity"
             )
-        _check_range(self, "rate", 1e10, 1e7)
-
-        _check_range(self, "rate", 1e6, 1)
+        _check_range(self, "rate", 1, 1e6)
 
 
 class EnergyTransferUpconversion(SpectroscopicSystem):
