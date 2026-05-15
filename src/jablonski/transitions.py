@@ -58,6 +58,11 @@ class Absorption(SpectroscopicSystem):
 
     absorption = MassAction(reactants=[ground], products=[excited], rate=rate * pump)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = self.ground
+        self._target = self.excited
+
     @property
     def energy_difference(self) -> pint.Quantity:
         return self.excited.energy - self.ground.energy
@@ -87,6 +92,11 @@ class TripletTripletAbsorption(SpectroscopicSystem):
 
     absorption = MassAction(reactants=[ground], products=[excited], rate=pump * rate)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = self.ground
+        self._target = self.excited
+
     @property
     def energy_difference(self) -> pint.Quantity:
         return self.excited.energy - self.ground.energy
@@ -112,6 +122,11 @@ class VibrationalRelaxation(SpectroscopicSystem):
     rate: Parameter = assign(default=1e12 / ureg.s)
 
     non_radiative_decay = MassAction(reactants=[high], products=[low], rate=rate)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = self.high
+        self._target = self.low
 
     @property
     def energy_difference(self) -> pint.Quantity:
@@ -140,6 +155,11 @@ class InternalConversion(SpectroscopicSystem):
 
     non_radiative_decay = MassAction(reactants=[high], products=[low], rate=rate)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = self.high
+        self._target = self.low
+
     @property
     def energy_difference(self) -> pint.Quantity:
         return self.high.energy - self.low.energy
@@ -166,6 +186,11 @@ class Fluorescence(SpectroscopicSystem):
     rate: Parameter = assign(default=1e10 / ureg.s)
 
     radiative_decay = MassAction(reactants=[excited], products=[ground], rate=rate)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = self.excited
+        self._target = self.ground
 
     @property
     def energy_difference(self) -> pint.Quantity:
@@ -198,6 +223,11 @@ class IntersystemCrossing(SpectroscopicSystem):
         reactants=[source], products=[target], rate=rate
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = self.source
+        self._target = self.target
+
     @property
     def energy_difference(self) -> pint.Quantity:
         return self.source.energy - self.target.energy
@@ -225,6 +255,11 @@ class ReverseIntersystemCrossing(SpectroscopicSystem):
         reactants=[source], products=[target], rate=rate
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = self.source
+        self._target = self.target
+
     @property
     def energy_difference(self) -> pint.Quantity:
         return self.source.energy - self.target.energy
@@ -249,6 +284,11 @@ class Phosphorescence(SpectroscopicSystem):
     rate: Parameter = assign(default=1e6 / ureg.s)
     radiative_decay = MassAction(reactants=[excited], products=[ground], rate=rate)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = self.excited
+        self._target = self.ground
+
     @property
     def energy_difference(self) -> pint.Quantity:
         return self.excited.energy - self.ground.energy
@@ -258,7 +298,7 @@ class Phosphorescence(SpectroscopicSystem):
             raise ValueError(
                 "Excited state energy must be higher than ground state energy"
             )
-        if self.excited.multiplicity != self.ground.multiplicity:
+        if self.excited.multiplicity == self.ground.multiplicity:
             raise TypeError(
                 "Both states must have different multiplicity in phosphorescence, use Fluorescence for radiative transitions with the same spin multiplicity"
             )
