@@ -122,6 +122,7 @@ build = { cmd = "uv build" }
 # ] }
 
 [tool.pixi.feature.test.dependencies]
+matplotlib = "*"
 pytest = "*"
 pooch = "*"
 
