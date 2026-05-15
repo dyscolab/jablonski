@@ -11,7 +11,7 @@ Types and type alias.
 from typing import Literal, Protocol, TypeAlias, runtime_checkable
 
 import pint
-from poincare import Parameter
+from poincare import Parameter, Variable
 
 Power: TypeAlias = float | int
 Time: TypeAlias = float | int | pint.Quantity
@@ -27,3 +27,9 @@ class Pumper(Protocol):
 @runtime_checkable
 class RadiativeDecay(Protocol):
     radiative_decay: Parameter
+
+
+@runtime_checkable
+class Drawable(Protocol):
+    _source: Variable
+    _target: Variable
