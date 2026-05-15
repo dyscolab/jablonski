@@ -137,15 +137,14 @@ class JablonskiDiagram:
         ),
         fontsize: Number = 10,
         show_energy_axis: bool = True,
-        aspect_ratio: Number = 1,
     ) -> tuple[Axes, Figure]:
 
-        # Use energy ranges and aspect ratios to decide scales
+        # Use energy ranges and figure size
         energies = [level.energy for level in self.levels]
         max_energy = np.max(energies)
         min_energy = np.min(energies)
         self._yscale = max_energy - min_energy
-        self._xscale = self._yscale * aspect_ratio
+        self._xscale = self._yscale * figsize[0] / figsize[1]
 
         column_positions = self._place_columns(self.columns)
         positions = self._build_positions(column_positions)
@@ -164,7 +163,7 @@ class JablonskiDiagram:
             )
 
             ax.text(
-                x_end + 0.01 * self._xscale,
+                x_end + 0.01,
                 y,
                 level.label,
                 va="center",
@@ -280,8 +279,7 @@ class JablonskiDiagram:
 
             px = -dy / length
             py = dx / length
-
-            amplitude = 0.01 * self._xscale
+            amplitude = 0.01 * (self._xscale * np.abs(px) + self._yscale * np.abs(py))
             frequency = 12
 
             # Define the time splits (t goes from 0 to 1)

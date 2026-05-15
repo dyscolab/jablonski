@@ -48,7 +48,6 @@ def jablonski_diagram(
     figsize: tuple[Number, Number] = (6.4, 4.8),
     fontsize: Number = 10,
     show_energy_axis: bool = True,
-    aspect_ratio: Number = 1,
     unit: str | pint.Unit = ureg.eV,
 ) -> tuple[Axes, Figure]:
     if isinstance(unit, str):
@@ -85,7 +84,6 @@ def jablonski_diagram(
         figsize=figsize,
         fontsize=fontsize,
         show_energy_axis=show_energy_axis,
-        aspect_ratio=aspect_ratio,
     )
     ax.set_ylabel(f"Energy [{str(unit)} ]")
     return fig, ax
