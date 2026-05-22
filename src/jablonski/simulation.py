@@ -212,7 +212,7 @@ def emission_spectra(
     return da
 
 
-def excitation_spectra(
+def excitation_emission_matrix(
     system: SpectroscopicSystem,
     height: float | Iterable[float],
     unit: str | pint.Unit = ureg.nm,
@@ -224,6 +224,9 @@ def excitation_spectra(
             system, excitation_transition=pumper, height=height, unit=unit
         )
     return xr.Dataset(results)
+
+
+# TODO: cut by emission
 
 
 def widened_emission_spectra(
@@ -275,37 +278,6 @@ def widened_emission_spectra(
     unit._REGISTRY.force_ndarray_like = False
     da.name = "spectrum"
     return da
-
-
-def graph_spectra(
-    system: SpectroscopicSystem,
-    excitation_transition: Pumper | Iterable[Pumper],
-    height: float,
-    unit: str | pint.Unit = ureg.nm,
-    kind: SpectraKind = "emission",
-    samples: Iterable[float] = np.linspace(380, 700, 1000),
-    width: float = 5,  # TODO: what is the right width?
-):
-    spectra = widened_emission_spectra(
-        system, excitation_transition, height, unit, kind, samples
-    )
-
-    import matplotlib.pyplot as plt
-    from matplotlib.collections import LineCollection
-
-    points = spectra["wavelenght"].values
-    spectrum = spectra.values
-    plot_points = np.array([points, spectrum]).T.reshape(-1, 1, 2)
-    segments = np.concatenate([plot_points[:-1], plot_points[1:]], axis=1)
-    lc = LineCollection(segments, cmap="nipy_spectral")
-    lc.set_array(points)
-    fig, ax = plt.subplots()
-    ax.add_collection(lc)
-    ax.set_xlim(points.min(), points.max())
-    ax.set_ylim(spectrum.min(), spectrum.max())
-    ax.set_xlabel(f"Wavelenght [ {unit} ]")
-    ax.set_ylabel("Emission [ photons/s ]")
-    return fig, ax
 
 
 def lines_to_energies(lines: Mapping[str, Pumper], ds: xr.Dataset) -> xr.Dataset:
