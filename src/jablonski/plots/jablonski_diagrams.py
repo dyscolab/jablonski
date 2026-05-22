@@ -163,7 +163,7 @@ class JablonskiDiagram:
             )
 
             ax.text(
-                x_end + 0.01,
+                x_end + 0.015 * self._xscale,
                 y,
                 level.label,
                 va="center",
