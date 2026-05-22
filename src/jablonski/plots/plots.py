@@ -1,4 +1,5 @@
-from typing import Iterable
+from io import StringIO
+from typing import Callable, Iterable, Mapping
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,6 +7,8 @@ import pint
 from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
+from poincare.printing.latex import Latex, ToLatex, default_packages, default_sections
+from poincare.printing.latex import model_report as _model_report
 
 from .._typing import Drawable, Pumper, RadiativeDecay
 from .._units import ureg
@@ -87,3 +90,59 @@ def jablonski_diagram(
     )
     ax.set_ylabel(f"Energy [{str(unit)} ]")
     return fig, ax
+
+
+def jablonski_diagram_section(model: SpectroscopicSystem, latex: ToLatex):
+    backend = plt.get_backend()
+    plt.switch_backend("pgf")
+    fig, ax = jablonski_diagram(model, figsize=(6, 4))
+
+    with StringIO() as plot_buffer:
+        fig.savefig(plot_buffer, format="pgf")
+        plt.switch_backend(backend)
+        return (
+            "\\begin{figure}[H]\n\\centering\n"
+            + plot_buffer.getvalue()
+            + "\n\\end{figure}"
+        )
+
+
+# def jablonski_diagram_section(model: SpectroscopicSystem, latex: ToLatex):
+#     matplotlib.use("pgf")
+#     fig, ax = jablonski_diagram(model, figsize=(6, 4))
+
+#     with BytesIO() as plot_buffer:
+#         fig.savefig(plot_buffer, format="png", dpi=300)
+#         plot_buffer.seek(0)
+#         b64_string = base64.b64encode(plot_buffer.read()).decode("utf-8")
+
+#         return (
+#             "\\begin{figure}[H]\n\\centering\n\\inlineimg[width=\\linewidth]{"
+#             + b64_string
+#             + "}"
+#             + "\n\\end{figure}"
+#         )
+
+
+def model_report(
+    model: type[SpectroscopicSystem],
+    path: str | None = None,
+    transform: dict | None = None,
+    descriptions: dict | None = None,
+    standalone: bool = True,
+    replace_algebraics: bool = False,
+    sections: Mapping[
+        str, Callable[[SpectroscopicSystem, ToLatex], str]
+    ] = default_sections | {"Jablonski diagram": jablonski_diagram_section},
+    packages: Iterable[str] = default_packages + ["pgf"],
+    # packages: Iterable[str] = default_packages + ["graphicx", "inline-images"],
+) -> Latex | None:
+    return _model_report(
+        model=model,
+        path=path,
+        descriptions=descriptions,
+        standalone=standalone,
+        replace_algebraics=replace_algebraics,
+        sections=sections,
+        packages=packages,
+    )
