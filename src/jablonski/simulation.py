@@ -33,9 +33,10 @@ def piecewise(
     events: dict[Time, Mapping[Components, Initial | Real | None]],
     save_at: npt.NDArray[np.float64],
 ) -> xr.Dataset:
-    event_keys = [
-        k.m_as("s") if isinstance(k, pint.Quantity) else k for k in events.keys()
-    ]
+    adimensionalized_events = {
+        k.m_as("s") if isinstance(k, pint.Quantity) else k: v for k, v in events.items()
+    }
+    event_keys = list(adimensionalized_events.keys())
     t_events = np.sort(event_keys)
     save_at = np.union1d(save_at, t_events)
     pos = np.searchsorted(save_at, t_events)
@@ -46,7 +47,7 @@ def piecewise(
     state = {}
     for t_span, save_at in zip(t_spans, save_ats):
         ds = sim.solve(t_span=t_span, save_at=save_at, values=state)
-        for k, v in events.get(save_at[-1], {}).items():
+        for k, v in adimensionalized_events.get(save_at[-1], {}).items():
             if v is None and k in state:
                 del state[k]
             else:
@@ -226,7 +227,20 @@ def excitation_emission_matrix(
     return xr.Dataset(results)
 
 
-# TODO: cut by emission
+def excitation_spectra(
+    system: SpectroscopicSystem,
+    emission: float | int | pint.Quantity,
+    height: float | Iterable[float],
+    unit: str | pint.Unit = ureg.nm,
+):
+    if isinstance(unit, str):
+        unit = ureg[unit]
+    if not isinstance(emission, pint.Quantity):
+        emission = emission * unit
+    emission = emission.to(unit).magnitude
+    matrix = excitation_emission_matrix(system=system, height=height, unit=unit)
+    ds = matrix.sel(wavelenght=emission).drop_vars("wavelenght")
+    return ds.to_dataarray(dim="pumper", name="exitation spectra")
 
 
 def widened_emission_spectra(

@@ -12,6 +12,7 @@ from typing import Literal, overload
 
 import pint
 from poincare import Independent, System, Variable
+from poincare._node import Node
 from poincare.types import Initial
 from typing_extensions import dataclass_transform
 
@@ -25,6 +26,12 @@ class SpinState(Variable):
     energy: pint.Quantity
 
     multiplicity = None
+
+    def _copy_from(self, parent: Node):
+        copy = super()._copy_from(parent=parent)
+        copy.energy = self.energy
+        copy.multiplicity = self.multiplicity
+        return copy
 
 
 class SingletState(SpinState):
