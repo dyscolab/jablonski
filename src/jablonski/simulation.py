@@ -203,7 +203,10 @@ def emission_spectra(
 
     da = xr.DataArray(
         data=np.array(
-            [spectral[energy].values.item() for energy in spectral.data_vars.keys()]
+            [
+                spectral[energy].pint.dequantify().values.item()
+                for energy in spectral.data_vars.keys()
+            ]
         ),
         dims="wavelenght",
         coords={"wavelenght": wavelenghts},
