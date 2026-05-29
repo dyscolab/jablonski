@@ -9,13 +9,14 @@ molecular systems.
 :license: BSD, see LICENSE for more details.
 """
 
-from poincare import Parameter, assign
+from poincare import Parameter, Simulator, assign
 
-from . import transitions, util
+from . import simulation, transitions, util
 from .states import SingletState, SpectroscopicSystem, TripletState, initial
 
 __all__ = [
     "transitions",
+    "simulation",
     "util",
     "SpectroscopicSystem",
     "initial",
@@ -23,4 +24,5 @@ __all__ = [
     "SingletState",
     "assign",
     "Parameter",
+    "Simulator",
 ]
