@@ -107,23 +107,6 @@ def jablonski_diagram_section(model: SpectroscopicSystem, latex: ToLatex):
         )
 
 
-# def jablonski_diagram_section(model: SpectroscopicSystem, latex: ToLatex):
-#     matplotlib.use("pgf")
-#     fig, ax = jablonski_diagram(model, figsize=(6, 4))
-
-#     with BytesIO() as plot_buffer:
-#         fig.savefig(plot_buffer, format="png", dpi=300)
-#         plot_buffer.seek(0)
-#         b64_string = base64.b64encode(plot_buffer.read()).decode("utf-8")
-
-#         return (
-#             "\\begin{figure}[H]\n\\centering\n\\inlineimg[width=\\linewidth]{"
-#             + b64_string
-#             + "}"
-#             + "\n\\end{figure}"
-#         )
-
-
 def model_report(
     model: type[SpectroscopicSystem],
     path: str | None = None,
