@@ -58,7 +58,7 @@ preview = ["pixi-build"]
 
 [tool.pixi.package.build]
 backend = { name = "pixi-build-python", version = "0.4.*" }
-# config = { ignore-pypi-mapping = false }                    # Enable automatic PyPI-to-conda mapping
+config = { ignore-pypi-mapping = false }                    # Enable automatic PyPI-to-conda mapping
 
 [tool.pixi.package.host-dependencies]
 uv-build = "*"
