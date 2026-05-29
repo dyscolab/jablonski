@@ -6,8 +6,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: prefix-dev/setup-pixi@v0.8.1
+      - uses: actions/checkout@v5
+      - uses: prefix-dev/setup-pixi@v0.9.3
         with:
           environments: lint
       - run: pixi run --environment lint lint
@@ -19,33 +19,31 @@ jobs:
         environment:
           - test-py312
           - test-py313
-          - test-py313
+          - test-py314
     steps:
-      - uses: actions/checkout@v4
-      - uses: prefix-dev/setup-pixi@v0.8.1
+      - uses: actions/checkout@v5
+      - uses: prefix-dev/setup-pixi@v0.9.3
         with:
           environments: ${{ matrix.environment }}
       - run: pixi run --environment ${{ matrix.environment }} test
 
-  # TODO: setup build and publish
+  publish:
+    needs: [test, lint]
 
-  # build:
-  #   needs: [test, lint]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/jablonski
+    permissions:
+      id-token: write  # for trusted publising to PyPI
 
-  #   runs-on: ubuntu-latest
-  #   environment:
-  #     name: pypi
-  #     url: https://pypi.org/p/simbio
-  #   permissions:
-  #     id-token: write  # for trusted publising to PyPI
-
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: prefix-dev/setup-pixi@v0.8.1
-  #       with:
-  #         environments: build
-  #     - name: Build the package
-  #       run: pixi run --environment build build
-  #     - name: Publish to PyPI
-  #       run: pixi run --environment build publish
-  #       if: github.ref_type == 'tag'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: prefix-dev/setup-pixi@v0.9.3
+        with:
+          environments: build
+      - name: Build the package
+        run: pixi run --environment build _build
+      - name: Publish to PyPI
+        if: ${{ github.ref_type == 'tag' }}
+        run: pixi run --environment build _publish

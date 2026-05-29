@@ -8,26 +8,18 @@ description = "Write and simulate ODE systems to describe the transitions in spe
 version = "0.1.0"
 requires-python = ">=3.12"
 keywords = []
-license = { text = "BSD-3-Clause" }
+license = "BSD-3-Clause"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: BSD License",
-  "Operating System :: MacOS :: MacOS X",
-  "Operating System :: Microsoft :: Windows",
-  "Operating System :: POSIX",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Topic :: Software Development :: Libraries",
-  "Topic :: Text Processing",
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering",
-  "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3",
 ]
-dependencies = ["poincare >= 1.1.0"]
+dependencies = ["poincare >= 1.1.1"]
 
 [project.urls]
 homepage = "https://github.com/dyscolab/jablonski"
@@ -60,7 +52,7 @@ project-excludes = [".pixi", "**/__pycache__"]
 python = ".pixi/envs/default"
 
 [tool.pixi.workspace]
-channels = ["https://prefix.dev/conda-forge"]
+channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "win-64"]
 preview = ["pixi-build"]
 
@@ -71,8 +63,6 @@ backend = { name = "pixi-build-python", version = "0.4.*" }
 [tool.pixi.package.host-dependencies]
 uv-build = "*"
 
-[tool.pixi.package.run-dependencies]
-# poincare = ">=1.0.0"
 
 [tool.pixi.environments]
 default = ["test", "py312"]
@@ -102,24 +92,11 @@ lint = "pre-commit run"
 uv = "*"
 python = "*"
 
-[tool.pixi.feature.build.pypi-dependencies]
-mdremotifier = "*"
 
 [tool.pixi.feature.build.tasks]
-build = { cmd = "uv build" }
-# build = { cmd = "uv build", depends-on = ["remotify"] }
-# publish = "uv publish"
-# remotify = { cmd = [
-#     "mdremotifier",
-#     "-i",
-#     "README.md",
-#     "-o",
-#     "README.md",
-#     "--url-prefix",
-#     "https://github.com/dyscolab/simbio/blob/main",
-#     "--img-url-prefix",
-#     "https://raw.githubusercontent.com/dyscolab/simbio/refs/heads/main/",
-# ] }
+build = "uv build"
+publish = "uv publish"
+
 
 [tool.pixi.feature.test.dependencies]
 matplotlib = "*"
