@@ -11,12 +11,13 @@ molecular systems.
 
 from poincare import Parameter, Simulator, assign
 
-from . import simulation, transitions, util
+from . import simulation, sweeps, transitions, util
 from .states import SingletState, SpectroscopicSystem, TripletState, initial
 
 __all__ = [
     "transitions",
     "simulation",
+    "sweeps",
     "util",
     "SpectroscopicSystem",
     "initial",

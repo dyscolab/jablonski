@@ -21,10 +21,8 @@ def test_absorption():
     class Correct(SpectroscopicSystem):
         ground = initial(1 * ureg.eV, "singlet", default=10)
         excited = initial(2 * ureg.eV, "singlet", default=10)
-        print(type(ground))
-        print(type(Absorption.ground))
 
-        transition = Absorption(ground=ground, excited=excited, rate=1e15 / ureg.s)
+        transition = Absorption(ground=ground, excited=excited, rate=1e-15 * ureg.cm**2)
 
     sim = Simulator(Correct)
     sim.solve(save_at=[1, 2, 3])
@@ -34,7 +32,9 @@ def test_absorption():
             ground = initial(1 * ureg.eV, "triplet", default=10)
             excited = initial(2 * ureg.eV, "singlet", default=10)
 
-            transition = Absorption(ground=ground, excited=excited, rate=1e15 / ureg.s)
+            transition = Absorption(
+                ground=ground, excited=excited, rate=1e-15 * ureg.cm**2
+            )
     except TypeError:
         pass
     else:
@@ -46,7 +46,9 @@ def test_absorption():
             ground = initial(2 * ureg.eV, "singlet", default=10)
             excited = initial(1 * ureg.eV, "singlet", default=10)
 
-            transition = Absorption(ground=ground, excited=excited, rate=1e15 / ureg.s)
+            transition = Absorption(
+                ground=ground, excited=excited, rate=1e-15 * ureg.cm**2
+            )
     except ValueError:
         pass
     else:
@@ -59,7 +61,7 @@ def test_triplet_triplet_absorption():
         excited = initial(2 * ureg.eV, "triplet", default=10)
 
         transition = TripletTripletAbsorption(
-            ground=ground, excited=excited, rate=1e15 / ureg.s
+            ground=ground, excited=excited, rate=1e15 * ureg.cm**2
         )
 
     sim = Simulator(Correct)
@@ -71,7 +73,7 @@ def test_triplet_triplet_absorption():
             excited = initial(2 * ureg.eV, "triplet", default=10)
 
             transition = TripletTripletAbsorption(
-                ground=ground, excited=excited, rate=1e15 / ureg.s
+                ground=ground, excited=excited, rate=1e-15 * ureg.cm**2
             )
     except TypeError:
         pass
@@ -85,7 +87,7 @@ def test_triplet_triplet_absorption():
             excited = initial(1 * ureg.eV, "triplet", default=10)
 
             transition = TripletTripletAbsorption(
-                ground=ground, excited=excited, rate=1e15 / ureg.s
+                ground=ground, excited=excited, rate=1e-15 * ureg.cm**2
             )
     except ValueError:
         pass
@@ -227,8 +229,8 @@ def test_intersystem_crossing():
     try:
 
         class Incorrect2(SpectroscopicSystem):
-            source = initial(2 * ureg.eV, "singlet", default=10)
-            target = initial(1 * ureg.eV, "triplet", default=10)
+            source = initial(1 * ureg.eV, "singlet", default=10)
+            target = initial(2 * ureg.eV, "triplet", default=10)
 
             transition = IntersystemCrossing(
                 source=source, target=target, rate=1e8 / ureg.s
@@ -267,8 +269,8 @@ def test_reverse_intersystem_crossing():
     try:
 
         class Incorrect2(SpectroscopicSystem):
-            source = initial(2 * ureg.eV, "triplet", default=10)
-            target = initial(1 * ureg.eV, "singlet", default=10)
+            source = initial(1 * ureg.eV, "triplet", default=10)
+            target = initial(2 * ureg.eV, "singlet", default=10)
 
             transition = ReverseIntersystemCrossing(
                 source=source, target=target, rate=1e8 / ureg.s

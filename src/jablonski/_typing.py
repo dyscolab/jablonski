@@ -16,7 +16,7 @@ from poincare import Parameter, Variable
 Power: TypeAlias = float | int
 Time: TypeAlias = float | int | pint.Quantity
 
-SpinMultiplicity = Literal["singlet", "triplet"]
+SpinMultiplicity = Literal["singlet", "triplet"] | None
 
 
 @runtime_checkable

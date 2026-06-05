@@ -134,7 +134,9 @@ def spectral_steady_state_emission(
 
     if not isinstance(excitation_transition, Iterable):
         excitation_transition = [excitation_transition]
-    if not isinstance(height, Iterable):
+    if (not isinstance(height, Iterable)) or (
+        isinstance(height, pint.Quantity) and not isinstance(height.magnitude, Iterable)
+    ):
         height = [height] * len(excitation_transition)
     ds = steady.solve(
         sim,

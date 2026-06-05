@@ -29,9 +29,9 @@ class Model(SpectroscopicSystem):
     mid: SingletState = initial(5 * ureg.eV, "singlet", default=10)
     high: SingletState = initial(6 * ureg.eV, "singlet", default=1)
 
-    absorption_1 = Absorption(ground=low, excited=high, rate=1e15 / ureg.s)
-    absorption_2 = Absorption(ground=low, excited=mid, rate=2e15 / ureg.s)
-    absorption_3 = Absorption(ground=mid, excited=high, rate=1.2e15 / ureg.s)
+    absorption_1 = Absorption(ground=low, excited=high, rate=1e-15 * ureg.cm**2)
+    absorption_2 = Absorption(ground=low, excited=mid, rate=2e-15 * ureg.cm**2)
+    absorption_3 = Absorption(ground=mid, excited=high, rate=1.2e-15 * ureg.cm**2)
     emission_1 = Fluorescence(ground=low, excited=mid, rate=2e8 / ureg.s)
     emission_2 = Fluorescence(ground=mid, excited=high, rate=0.5e8 / ureg.s)
     emission_3 = Fluorescence(ground=low, excited=high, rate=1e8 / ureg.s)
@@ -39,7 +39,9 @@ class Model(SpectroscopicSystem):
 
 def test_piecewise():
     sim = Simulator(Model)
-    pulse = pulse_excitation(Model.absorption_1, start=1e-8, width=2e-8, height=1e-6)
+    pulse = pulse_excitation(
+        Model.absorption_1, start=1e-8, width=2e-8, height=1e10 / (ureg.cm**2 * ureg.s)
+    )
     result_1 = piecewise(sim, events=pulse, save_at=np.linspace(0, 4e-8, 100))
     times = result_1.indexes["time"].values
     sim_1_times = times[times < 1e-8]
@@ -48,7 +50,7 @@ def test_piecewise():
     result_2_2 = sim.solve(
         save_at=sim_2_times,
         values={
-            Model.absorption_1.pump: 1e-6,
+            Model.absorption_1.pump: 1e10 / (ureg.cm**2 * ureg.s),
             Model.high: result_2_1["high"].values[-1],
             Model.mid: result_2_1["mid"].values[-1],
             Model.low: result_2_1["low"].values[-1],
@@ -73,7 +75,7 @@ def test_piecewise():
 
 
 def test_time_resolved_emission():
-    delta = delta_excitation(Model.absorption_3, start=0 * ureg.s, area=1 * ureg.s)
+    delta = delta_excitation(Model.absorption_3, start=0 * ureg.s, area=1 / ureg.cm**2)
 
     result = spectral_time_resolved_emission(
         system=Model,
@@ -111,7 +113,7 @@ def test_steady_state_emission():
     result = spectral_steady_state_emission(
         system=Model,
         excitation_transition=Model.absorption_1,
-        height=5,
+        height=5e10 / (ureg.cm**2 * ureg.s),
     )
 
     assert set([str(emission) for emission in result.data_vars.keys()]) == set(
@@ -124,7 +126,7 @@ def test_steady_state_emission():
     joined_result = spectral_steady_state_emission(
         system=Model,
         excitation_transition=Model.absorption_1,
-        height=5,
+        height=5e10 / (ureg.cm**2 * ureg.s),
         join_by_energy=True,
     )
     assert set(joined_result.data_vars.keys()) == set(
@@ -133,7 +135,7 @@ def test_steady_state_emission():
     non_spectral = steady_state_emission(
         system=Model,
         excitation_transition=Model.absorption_1,
-        height=5,
+        height=5e10 / (ureg.cm**2 * ureg.s),
     )
     assert np.all(
         np.asarray(non_spectral.to_array())
@@ -145,7 +147,7 @@ def test_emission_spectra():
     result = emission_spectra(
         system=Model,
         excitation_transition=Model.absorption_1,
-        height=5,
+        height=5e10 / (ureg.cm**2 * ureg.s),
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
@@ -164,7 +166,7 @@ def test_absorption_spectra():
     result = emission_spectra(
         system=Model,
         excitation_transition=Model.absorption_1,
-        height=5,
+        height=5e10 / (ureg.cm**2 * ureg.s),
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s

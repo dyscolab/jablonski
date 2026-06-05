@@ -88,7 +88,7 @@ def jablonski_diagram(
         fontsize=fontsize,
         show_energy_axis=show_energy_axis,
     )
-    ax.set_ylabel(f"Energy [{str(unit)} ]")
+    ax.set_ylabel(f"Energy [{str(unit)} ]", fontsize=fontsize)
     return fig, ax
 
 
