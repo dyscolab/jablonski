@@ -76,9 +76,12 @@ def initial(
 ) -> SingletState | TripletState:
     if spin_multiplicity == "singlet":
         state = SingletState(initial=default)
-    else:
+    elif spin_multiplicity == "triplet":
         state = TripletState(initial=default)
-
+    elif spin_multiplicity is None:
+        state = SpinState(initial=default)
+    else:
+        raise ValueError("spin_multiplicity must be 'singlet', 'triplet' or None")
     dim = ureg.get_dimensionality(energy)
 
     if dim == {}:
@@ -107,5 +110,5 @@ class SpectroscopicSystem(System, abstract=True):
         super().__init__(*args, **kwargs)
         self._check()
 
-    def _check(self):
+    def _check(self, check_range=False):
         pass
