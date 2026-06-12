@@ -223,7 +223,6 @@ def excitation_emission_matrix(
     height: float | Iterable[float],
     unit: str | pint.Unit = ureg.nm,
 ):
-    """CW excitation spectra."""
     results = {}
     for pumper in system._yield(Pumper):
         results[str(pumper)] = emission_spectra(
@@ -238,6 +237,7 @@ def excitation_spectra(
     height: float | Iterable[float],
     unit: str | pint.Unit = ureg.nm,
 ):
+    """CW excitation spectra."""
     if isinstance(unit, str):
         unit = ureg[unit]
     if not isinstance(emission, pint.Quantity):

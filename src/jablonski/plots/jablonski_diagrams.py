@@ -105,7 +105,7 @@ class JablonskiDiagram:
                         for t in intracolumn_transitions[column]
                         if t.target.energy < t.source.energy
                     ],
-                    key=lambda t: (t.target.energy, -t.source.energy),
+                    key=lambda t: (-t.source.energy, t.target.energy),
                 ),
             }
             for column in self.columns

@@ -26,6 +26,7 @@ def graph_spectra(
     kind: SpectraKind = "emission",
     samples: Iterable[float] = np.linspace(380, 700, 1000),
     width: float = 5,  # TODO: what is the right width?
+    figsize: tuple[Number, Number] = (6.4, 4.8),
 ):
     spectra = widened_emission_spectra(
         system, excitation_transition, height, unit, kind, samples, width=width
@@ -37,7 +38,7 @@ def graph_spectra(
     segments = np.concatenate([plot_points[:-1], plot_points[1:]], axis=1)
     lc = LineCollection(segments, cmap="nipy_spectral")
     lc.set_array(points)
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=figsize)
     ax.add_collection(lc)
     ax.set_xlim(points.min(), points.max())
     ax.set_ylim(spectrum.min(), spectrum.max())
@@ -118,7 +119,6 @@ def model_report(
         str, Callable[[SpectroscopicSystem, ToLatex], str]
     ] = default_sections | {"Jablonski diagram": jablonski_diagram_section},
     packages: Iterable[str] = default_packages + ["pgf"],
-    # packages: Iterable[str] = default_packages + ["graphicx", "inline-images"],
 ) -> Latex | None:
     return _model_report(
         model=model,
