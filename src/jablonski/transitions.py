@@ -334,3 +334,48 @@ class EnergyTransferUpconversion(SpectroscopicSystem):
     upconversion = MassAction(
         reactants=[2 * sensitizer], products=[activator, relaxator], rate=rate
     )
+
+    @property
+    def energy_difference(self) -> pint.Quantity:
+        return (
+            2 * self.sensitizer.energy - self.activator.energy - self.relaxator.energy
+        )
+
+    def _check(self, check_range=False):
+        if self.energy_difference < 0:
+            raise ValueError(
+                "Total energy of final states must not be greater than original states energy"
+            )
+
+
+class EnergyTransferUpconversion4(SpectroscopicSystem):
+    sensitizer_high: SingletState = initial(
+        0.0, default=0
+    )  # TODO: should this be a generic SpinState?
+    sensitizer_low: SingletState = initial(0.0, default=0)
+
+    activator_high: SingletState = initial(0.0, default=0)
+    activator_low: SingletState = initial(0.0, default=0)
+
+    rate: Parameter = assign(default=0 / ureg.s)
+
+    upconversion = MassAction(
+        reactants=[sensitizer_high, activator_low],
+        products=[sensitizer_low, activator_high],
+        rate=rate,
+    )
+
+    @property
+    def energy_difference(self) -> pint.Quantity:
+        return (
+            self.sensitizer_high.energy
+            + self.activator_low.energy
+            - self.sensitizer_low.energy
+            - self.activator_high.energy
+        )
+
+    def _check(self, check_range=False):
+        if self.energy_difference < 0:
+            raise ValueError(
+                "Total energy of final states must not be greater than original states energy"
+            )
