@@ -321,8 +321,8 @@ def test_phosphorescence():
 
 def test_energy_transfer_upconversion():
     class Correct(SpectroscopicSystem):
-        sensitizer = initial(1 * ureg.eV, "singlet", default=10)
-        activator = initial(2 * ureg.eV, "singlet", default=10)
+        sensitizer = initial(2 * ureg.eV, "singlet", default=10)
+        activator = initial(3 * ureg.eV, "singlet", default=10)
         relaxator = initial(1 * ureg.eV, "singlet", default=10)
 
         transition = EnergyTransferUpconversion(
