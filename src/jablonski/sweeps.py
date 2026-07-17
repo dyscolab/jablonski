@@ -2,6 +2,7 @@ from typing import Iterable
 
 import pint
 import xarray as xr
+from poincare.solvers import Solver, LSODA
 
 from . import util
 from ._typing import Pumper
@@ -17,6 +18,7 @@ def sweep_spectral_steady_state_emission(
     heights: Iterable[float],
     kind: util.SpectraKind = "emission",
     join_by_energy: bool = False,
+    solver: Solver = LSODA(),
 ):
     ds = xr.Dataset()
     for height in heights:
@@ -27,6 +29,7 @@ def sweep_spectral_steady_state_emission(
                 height=height,
                 kind=kind,
                 join_by_energy=join_by_energy,
+                solver=solver,
             )
             .to_dataarray(dim="energy" if join_by_energy else "line")
             .drop_vars("time")
@@ -41,6 +44,7 @@ def sweep_emission_spectra(
     heights: Iterable[float],
     unit: str | pint.Unit = ureg.nm,
     kind: SpectraKind = "emission",
+    solver: Solver = LSODA(),
 ):
     ds = xr.Dataset()
     for height in heights:
@@ -49,5 +53,6 @@ def sweep_emission_spectra(
             excitation_transition=excitation_transition,
             height=height,
             kind=kind,
+            solver=solver,
         )
     return ds
