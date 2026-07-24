@@ -55,11 +55,11 @@ class Absorption(SpectroscopicSystem):
     The energy of the photon is converted to the internal energy of the molecule.
     """
 
-    ground: SingletState = initial(0.0, default=0)
-    excited: SingletState = initial(0.0, default=0)
+    ground: SingletState = initial(0.0)
+    excited: SingletState = initial(0.0)
 
     # timescale 10^-15 s
-    rate: Parameter = assign(default=1e-15 * ureg.cm**2)
+    rate: Parameter = assign()
 
     pump: Parameter = assign(default=0 / (ureg.cm**2 * ureg.s))
 
@@ -92,11 +92,11 @@ class TripletTripletAbsorption(SpectroscopicSystem):
     The energy of the photon is converted to the internal energy of the molecule.
     """
 
-    ground: TripletState = initial(0.0, default=0, spin_multiplicity="triplet")
-    excited: TripletState = initial(0.0, default=0, spin_multiplicity="triplet")
+    ground: TripletState = initial(0.0, spin_multiplicity="triplet")
+    excited: TripletState = initial(0.0, spin_multiplicity="triplet")
 
     # TODO: what is the correct timescale
-    rate: Parameter = assign(default=1e-15 * ureg.cm**2)
+    rate: Parameter = assign()
 
     pump: Parameter = assign(default=0 / (ureg.cm**2 * ureg.s))
 
@@ -126,11 +126,11 @@ class VibrationalRelaxation(SpectroscopicSystem):
     within the same electronic state.
     """
 
-    high: SpinState = initial(0.0, default=0, spin_multiplicity=None)
-    low: SpinState = initial(0.0, default=0, spin_multiplicity=None)
+    high: SpinState = initial(0.0, spin_multiplicity=None)
+    low: SpinState = initial(0.0, spin_multiplicity=None)
 
     # timescale 10^-12 s and 10^-10 s
-    rate: Parameter = assign(default=1e12 / ureg.s)
+    rate: Parameter = assign()
 
     non_radiative_decay = MassAction(reactants=[high], products=[low], rate=rate)
 
@@ -159,11 +159,11 @@ class InternalConversion(SpectroscopicSystem):
     of the same spin multiplicity.
     """
 
-    high: SpinState = initial(0.0, default=0, spin_multiplicity=None)
-    low: SpinState = initial(0.0, default=0, spin_multiplicity=None)
+    high: SpinState = initial(0.0, spin_multiplicity=None)
+    low: SpinState = initial(0.0, spin_multiplicity=None)
 
     # timescale 10^-11 s and 10^-9 s, sometimes slower.
-    rate: Parameter = assign(default=1e11 / ureg.s)
+    rate: Parameter = assign()
 
     non_radiative_decay = MassAction(reactants=[high], products=[low], rate=rate)
 
@@ -192,11 +192,11 @@ class Fluorescence(SpectroscopicSystem):
     of the same spin multiplicity.
     """
 
-    excited: SpinState = initial(0.0, default=0, spin_multiplicity=None)
-    ground: SpinState = initial(0.0, default=0, spin_multiplicity=None)
+    excited: SpinState = initial(0.0, spin_multiplicity=None)
+    ground: SpinState = initial(0.0, spin_multiplicity=None)
 
     # timescale 10^-10 s and 10^-7 s.
-    rate: Parameter = assign(default=1e10 / ureg.s)
+    rate: Parameter = assign()
 
     radiative_decay = MassAction(reactants=[excited], products=[ground], rate=rate)
 
@@ -227,11 +227,11 @@ class IntersystemCrossing(SpectroscopicSystem):
     to electronic states of different spin multiplicity, from singlet to triplet.
     """
 
-    source: SingletState = initial(0.0, default=0)
-    target: TripletState = initial(0.0, "triplet", default=0)
+    source: SingletState = initial(0.0)
+    target: TripletState = initial(0.0, "triplet")
 
     # timescale 10^−8 s to 10^−3 s
-    rate: Parameter = assign(default=1e8 / ureg.s)
+    rate: Parameter = assign()
 
     non_radiative_transition = MassAction(
         reactants=[source], products=[target], rate=rate
@@ -260,11 +260,11 @@ class ReverseIntersystemCrossing(SpectroscopicSystem):
     to electronic states of different spin multiplicity, from triple to singlet.
     """
 
-    source: TripletState = initial(0.0, "triplet", default=0)
-    target: SingletState = initial(0.0, default=0)
+    source: TripletState = initial(0.0, "triplet")
+    target: SingletState = initial(0.0)
 
     # timescale 10^−8 s to 10^−3 s
-    rate: Parameter = assign(default=1e8 / ureg.s)
+    rate: Parameter = assign()
 
     non_radiative_transition = MassAction(
         reactants=[source], products=[target], rate=rate
@@ -295,11 +295,11 @@ class Phosphorescence(SpectroscopicSystem):
     states of different spin multiplicity.
     """
 
-    excited: SpinState = initial(0.0, default=0, spin_multiplicity=None)
-    ground: SpinState = initial(0.0, default=0, spin_multiplicity=None)
+    excited: SpinState = initial(0.0, spin_multiplicity=None)
+    ground: SpinState = initial(0.0, spin_multiplicity=None)
 
     # timescale 10^-6 s to 10 s range.
-    rate: Parameter = assign(default=1e6 / ureg.s)
+    rate: Parameter = assign()
     radiative_decay = MassAction(reactants=[excited], products=[ground], rate=rate)
 
     def __init__(self, *args, **kwargs):
@@ -325,11 +325,11 @@ class Phosphorescence(SpectroscopicSystem):
 
 
 class EnergyTransferUpconversion(SpectroscopicSystem):
-    sensitizer: SingletState = initial(0.0, default=0)
-    activator: SingletState = initial(0.0, default=0)
-    relaxator: SingletState = initial(0.0, default=0)
+    sensitizer: SingletState = initial(0.0)
+    activator: SingletState = initial(0.0)
+    relaxator: SingletState = initial(0.0)
 
-    rate: Parameter = assign(default=0 / ureg.s)
+    rate: Parameter = assign()
 
     upconversion = MassAction(
         reactants=[2 * sensitizer], products=[activator, relaxator], rate=rate
@@ -350,14 +350,14 @@ class EnergyTransferUpconversion(SpectroscopicSystem):
 
 class EnergyTransferUpconversion4(SpectroscopicSystem):
     sensitizer_high: SingletState = initial(
-        0.0, default=0
+        0.0
     )  # TODO: should this be a generic SpinState?
-    sensitizer_low: SingletState = initial(0.0, default=0)
+    sensitizer_low: SingletState = initial(0.0)
 
-    activator_high: SingletState = initial(0.0, default=0)
-    activator_low: SingletState = initial(0.0, default=0)
+    activator_high: SingletState = initial(0.0)
+    activator_low: SingletState = initial(0.0)
 
-    rate: Parameter = assign(default=0 / ureg.s)
+    rate: Parameter = assign()
 
     upconversion = MassAction(
         reactants=[sensitizer_high, activator_low],
