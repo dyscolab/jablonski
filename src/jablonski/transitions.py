@@ -55,8 +55,8 @@ class Absorption(SpectroscopicSystem):
     The energy of the photon is converted to the internal energy of the molecule.
     """
 
-    ground: SingletState = initial(0.0)
-    excited: SingletState = initial(0.0)
+    ground: SingletState = initial(0.0, spin_multiplicity="singlet")
+    excited: SingletState = initial(0.0, spin_multiplicity="singlet")
 
     # timescale 10^-15 s
     rate: Parameter = assign()
@@ -325,9 +325,9 @@ class Phosphorescence(SpectroscopicSystem):
 
 
 class EnergyTransferUpconversion(SpectroscopicSystem):
-    sensitizer: SingletState = initial(0.0)
-    activator: SingletState = initial(0.0)
-    relaxator: SingletState = initial(0.0)
+    sensitizer: SpinState = initial(0.0, spin_multiplicity=None)
+    activator: SpinState = initial(0.0, spin_multiplicity=None)
+    relaxator: SpinState = initial(0.0, spin_multiplicity=None)
 
     rate: Parameter = assign()
 
@@ -349,13 +349,13 @@ class EnergyTransferUpconversion(SpectroscopicSystem):
 
 
 class EnergyTransferUpconversion4(SpectroscopicSystem):
-    sensitizer_high: SingletState = initial(
-        0.0
+    sensitizer_high: SpinState = initial(
+        0.0, spin_multiplicity=None
     )  # TODO: should this be a generic SpinState?
-    sensitizer_low: SingletState = initial(0.0)
+    sensitizer_low: SpinState = initial(0.0, spin_multiplicity=None)
 
-    activator_high: SingletState = initial(0.0)
-    activator_low: SingletState = initial(0.0)
+    activator_high: SpinState = initial(0.0, spin_multiplicity=None)
+    activator_low: SpinState = initial(0.0, spin_multiplicity=None)
 
     rate: Parameter = assign()
 
