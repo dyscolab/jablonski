@@ -14,6 +14,7 @@ from typing import Iterable, Mapping
 import numpy as np
 import numpy.typing as npt
 import pint
+import pint_xarray
 import scipy.constants as constants
 import xarray as xr
 from poincare import Simulator, SteadyState
@@ -27,6 +28,9 @@ from ._units import DEFAULT_DELTA, ureg
 from .states import SpectroscopicSystem
 from .util import SpectraKind
 
+pint.get_application_registry().force_ndarray_like = False
+# When pint-xarray is imported it sets it to true, it can break poincare compilation
+
 
 def piecewise(
     sim: Simulator,
@@ -35,21 +39,31 @@ def piecewise(
     save_at: npt.NDArray[np.float64],
     solver: Solver = LSODA(),
 ) -> xr.Dataset:
-    adimensionalized_events = {
-        k.m_as("s") if isinstance(k, pint.Quantity) else k: v for k, v in events.items()
-    }
-    event_keys = list(adimensionalized_events.keys())
-    t_events = np.sort(event_keys)
-    save_at = np.union1d(save_at, t_events)
-    pos = np.searchsorted(save_at, t_events)
-    save_ats = np.split(save_at, pos + 1)
-    t_spans = pairwise(chain((0,), t_events, (save_at[-1],)))
+    try:
+        event_keys = np.array([key.to(ureg.s).magnitude for key in events.keys()])
+    except (AttributeError, pint.DimensionalityError):
+        raise pint.PintError(
+            "events keys must be pint Quantities and have time dimensionality."
+        )
 
+    try:
+        adimensional_save_at = save_at.to(ureg.s).magnitude
+    except (AttributeError, pint.DimensionalityError):
+        raise pint.PintError(
+            "save_at must be pint Quantity and have time dimensionality."
+        )
+    t_events = np.sort(event_keys)
+    adimensional_save_at = np.union1d(adimensional_save_at, t_events)
+    pos = np.searchsorted(adimensional_save_at, t_events)
+    adimensional_save_ats = np.split(adimensional_save_at, pos + 1)
+    adimensional_t_spans = pairwise(chain((0,), t_events, (adimensional_save_at[-1],)))
+    t_spans = [span * ureg.s for span in adimensional_t_spans]
+    save_ats = [save * ureg.s for save in adimensional_save_ats]
     dss = []
     state = {}
     for t_span, save_at in zip(t_spans, save_ats):
         ds = sim.solve(t_span=t_span, save_at=save_at, values=state, solver=solver)
-        for k, v in adimensionalized_events.get(save_at[-1], {}).items():
+        for k, v in events.get(save_at[-1], {}).items():
             if v is None and k in state:
                 del state[k]
             else:
@@ -57,12 +71,16 @@ def piecewise(
             # str(k) porque en el output no usamos el objeto Variable aun
             as_str = str(k)
             if as_str in ds:
-                ds[as_str].values[-1] = v
+                ds[as_str][-1] = v
 
-        state.update({k: ds[str(k)].values[-1] for k in sim.compiled.variables})
-        dss.append(ds)
+        state.update({k: ds[str(k)][-1].item() for k in sim.compiled.variables})
+        dss.append(ds.pint.dequantify())
 
     ds = xr.concat(dss, dim="time")
+
+    pint_xarray.setup_registry(ureg)
+    ds = ds.pint.quantify()
+    ureg.force_ndarray_like = False
     return ds
 
 
