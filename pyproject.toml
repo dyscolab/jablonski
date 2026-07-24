@@ -103,6 +103,9 @@ matplotlib = "*"
 pytest = "*"
 pooch = "*"
 
+[tool.pixi.feature.test.pypi-dependencies]
+rebop = ">=0.9"
+
 [tool.pixi.feature.test.tasks]
 test = "pytest --doctest-modules"
 
