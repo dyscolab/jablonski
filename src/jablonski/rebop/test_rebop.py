@@ -53,10 +53,9 @@ def test_rebop_simulation():
         Model.absorption_1, start=0.1e-8 * ureg.s, area=1e14 / ureg.cm**2
     )
     pulse = pulse_excitation(
-        Model.absorption_1,
+        excitation={Model.absorption_1: 1e23 / (ureg.cm**2 * ureg.s)},
         start=5e-8 * ureg.s,
         width=2e-8 * ureg.s,
-        height=1e23 / (ureg.cm**2 * ureg.s),
     )
     seeds = [1, 43, 56, 67, 78, 45, 90, 35, 45, 81]
     r_sols = []

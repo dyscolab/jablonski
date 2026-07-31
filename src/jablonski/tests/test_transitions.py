@@ -1,3 +1,4 @@
+import numpy as np
 from poincare import Simulator
 
 from jablonski.states import SpectroscopicSystem, initial
@@ -25,7 +26,7 @@ def test_absorption():
         transition = Absorption(ground=ground, excited=excited, rate=1e-15 * ureg.cm**2)
 
     sim = Simulator(Correct)
-    sim.solve(save_at=[1, 2, 3])
+    sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)
     try:
 
         class Incorrect1(SpectroscopicSystem):
@@ -65,7 +66,7 @@ def test_triplet_triplet_absorption():
         )
 
     sim = Simulator(Correct)
-    sim.solve(save_at=[1, 2, 3])
+    sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)
     try:
 
         class Incorrect1(SpectroscopicSystem):
@@ -103,7 +104,7 @@ def test_vibrational_relaxation():
         transition = VibrationalRelaxation(high=high, low=low, rate=1e12 / ureg.s)
 
     sim = Simulator(Correct)
-    sim.solve(save_at=[1, 2, 3])
+    sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)
     try:
 
         class Incorrect1(SpectroscopicSystem):
@@ -137,7 +138,7 @@ def test_internal_conversion():
         transition = InternalConversion(high=high, low=low, rate=1e11 / ureg.s)
 
     sim = Simulator(Correct)
-    sim.solve(save_at=[1, 2, 3])
+    sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)
     try:
 
         class Incorrect1(SpectroscopicSystem):
@@ -171,7 +172,7 @@ def test_fluorescence():
         transition = Fluorescence(excited=excited, ground=ground, rate=1e10 / ureg.s)
 
     sim = Simulator(Correct)
-    sim.solve(save_at=[1, 2, 3])
+    sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)
     try:
 
         class Incorrect1(SpectroscopicSystem):
@@ -211,7 +212,7 @@ def test_intersystem_crossing():
         )
 
     sim = Simulator(Correct)
-    sim.solve(save_at=[1, 2, 3])
+    sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)
     try:
 
         class Incorrect1(SpectroscopicSystem):
@@ -251,7 +252,7 @@ def test_reverse_intersystem_crossing():
         )
 
     sim = Simulator(Correct)
-    sim.solve(save_at=[1, 2, 3])
+    sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)
     try:
 
         class Incorrect1(SpectroscopicSystem):
@@ -289,7 +290,7 @@ def test_phosphorescence():
         transition = Phosphorescence(excited=excited, ground=ground, rate=1e6 / ureg.s)
 
     sim = Simulator(Correct)
-    sim.solve(save_at=[1, 2, 3])
+    sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)
     try:
 
         class Incorrect1(SpectroscopicSystem):
@@ -333,4 +334,4 @@ def test_energy_transfer_upconversion():
         )
 
     sim = Simulator(Correct)
-    sim.solve(save_at=[1, 2, 3])
+    sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)

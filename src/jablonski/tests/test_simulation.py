@@ -40,16 +40,15 @@ class Model(SpectroscopicSystem):
 def test_piecewise():
     sim = Simulator(Model)
     pulse = pulse_excitation(
-        Model.absorption_1,
+        excitation={Model.absorption_1: 1e10 / (ureg.cm**2 * ureg.s)},
         start=1e-8 * ureg.s,
         width=2e-8 * ureg.s,
-        height=1e10 / (ureg.cm**2 * ureg.s),
     )
     result_1 = piecewise(sim, events=pulse, save_at=np.linspace(0, 4e-8, 100) * ureg.s)
     times = result_1.pint.dequantify().indexes["time"].values
-    sim_1_times = times[times < 1e-8]
+    sim_1_times = times[times < 1e-8] * ureg.s
     result_2_1 = sim.solve(save_at=sim_1_times)
-    sim_2_times = times[(times >= 1e-8) & (times < 3e-8)]
+    sim_2_times = times[(times >= 1e-8) & (times < 3e-8)] * ureg.s
     result_2_2 = sim.solve(
         save_at=sim_2_times,
         values={
@@ -59,7 +58,7 @@ def test_piecewise():
             Model.low: result_2_1["low"].values[-1],
         },
     )
-    sim_3_times = times[times >= 3e-8]
+    sim_3_times = times[times >= 3e-8] * ureg.s
     result_2_3 = sim.solve(
         save_at=sim_3_times,
         values={
@@ -97,10 +96,9 @@ def test_piecewise_with_units():
         emission_3 = Fluorescence(ground=low, excited=high, rate=1e8 / ureg.s)
 
     pulse = pulse_excitation(
-        Model.absorption_1,
+        excitation={Model.absorption_1: 1e10 / (ureg.cm**2 * ureg.s)},
         start=1e-8 * ureg.s,
         width=2e-8 * ureg.s,
-        height=1e10 / (ureg.cm**2 * ureg.s),
     )
 
     sim = Simulator(Model)
@@ -154,8 +152,7 @@ def test_time_resolved_emission():
 def test_steady_state_emission():
     result = spectral_steady_state_emission(
         system=Model,
-        excitation_transition=Model.absorption_1,
-        height=5e10 / (ureg.cm**2 * ureg.s),
+        excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
     )
 
     assert set([str(emission) for emission in result.data_vars.keys()]) == set(
@@ -167,8 +164,7 @@ def test_steady_state_emission():
     )
     joined_result = spectral_steady_state_emission(
         system=Model,
-        excitation_transition=Model.absorption_1,
-        height=5e10 / (ureg.cm**2 * ureg.s),
+        excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
         join_by_energy=True,
     )
     assert set(joined_result.data_vars.keys()) == set(
@@ -176,8 +172,7 @@ def test_steady_state_emission():
     )
     non_spectral = steady_state_emission(
         system=Model,
-        excitation_transition=Model.absorption_1,
-        height=5e10 / (ureg.cm**2 * ureg.s),
+        excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
     )
     assert np.all(
         np.asarray(non_spectral.to_array())
@@ -188,8 +183,7 @@ def test_steady_state_emission():
 def test_emission_spectra():
     result = emission_spectra(
         system=Model,
-        excitation_transition=Model.absorption_1,
-        height=5e10 / (ureg.cm**2 * ureg.s),
+        excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
@@ -207,8 +201,7 @@ def test_emission_spectra():
 def test_absorption_spectra():
     result = emission_spectra(
         system=Model,
-        excitation_transition=Model.absorption_1,
-        height=5e10 / (ureg.cm**2 * ureg.s),
+        excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s

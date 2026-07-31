@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 from poincare.printing.latex import Latex, ToLatex, default_packages, default_sections
 from poincare.printing.latex import model_report as _model_report
 
-from .._typing import Drawable, Pumper, RadiativeDecay
+from .._typing import Drawable, Pumper, RadiativeDecay, Excitation
 from .._units import ureg
 from ..simulation import widened_emission_spectra
 from ..states import SpectroscopicSystem, SpinState
@@ -20,8 +20,7 @@ from .jablonski_diagrams import JablonskiDiagram, Level, Number, Transition
 
 def graph_spectra(
     system: SpectroscopicSystem,
-    excitation_transition: Pumper | Iterable[Pumper],
-    height: float,
+    excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
     kind: SpectraKind = "emission",
     samples: Iterable[float] = np.linspace(380, 700, 1000),
@@ -29,7 +28,7 @@ def graph_spectra(
     figsize: tuple[Number, Number] = (6.4, 4.8),
 ):
     spectra = widened_emission_spectra(
-        system, excitation_transition, height, unit, kind, samples, width=width
+        system, excitation, unit, kind, samples, width=width
     )
 
     points = spectra["wavelenght"].values

@@ -23,7 +23,7 @@ from poincare.solvers import Solver, LSODA
 from symbolite import Real
 
 from . import util
-from ._typing import Pumper, Time
+from ._typing import Pumper, Time, Excitation
 from ._units import DEFAULT_DELTA, ureg
 from .states import SpectroscopicSystem
 from .util import SpectraKind
@@ -85,19 +85,19 @@ def piecewise(
 
 
 def step_excitation(
-    excitation_transition: Pumper, height: float, start: Time = 0 * ureg.s
+    excitation: Excitation, start: Time = 0 * ureg.s
 ) -> dict[Time, Mapping[Components, Initial | Real | None]]:
     return {
-        start: {excitation_transition.pump: height},
+        start: {pumper.pump: height for pumper, height in excitation.items()},
     }
 
 
 def pulse_excitation(
-    excitation_transition: Pumper, height: float, width: Time, start: Time = 0 * ureg.s
+    excitation: Excitation, width: Time, start: Time = 0 * ureg.s
 ) -> dict[Time, Mapping[Components, Initial | Real | None]]:
     return {
-        start: {excitation_transition.pump: height},
-        (start + width): {excitation_transition.pump: None},
+        start: {pumper.pump: height for pumper, height in excitation.items()},
+        (start + width): {pumper.pump: None for pumper in excitation.keys()},
     }
 
 
@@ -106,7 +106,7 @@ def delta_excitation(
 ) -> dict[Time, Mapping[Components, Initial | Real | None]]:
     width = DEFAULT_DELTA
     height = area / width
-    return pulse_excitation(excitation_transition, height, width, start)
+    return pulse_excitation({excitation_transition: height}, width, start)
 
 
 def spectral_time_resolved_emission(
@@ -138,8 +138,7 @@ def spectral_time_resolved_emission(
 
 def spectral_steady_state_emission(
     system: SpectroscopicSystem,
-    excitation_transition: Pumper | Iterable[Pumper],
-    height: float | Iterable[float],
+    excitation: Excitation,
     kind: util.SpectraKind = "emission",
     join_by_energy: bool = False,
     solver: Solver = LSODA(),
@@ -154,18 +153,9 @@ def spectral_steady_state_emission(
     sim = Simulator(system, transform=transform)
     steady = SteadyState(solver=solver)
 
-    if not isinstance(excitation_transition, Iterable):
-        excitation_transition = [excitation_transition]
-    if (not isinstance(height, Iterable)) or (
-        isinstance(height, pint.Quantity) and not isinstance(height.magnitude, Iterable)
-    ):
-        height = [height] * len(excitation_transition)
     ds = steady.solve(
         sim,
-        values={
-            excitation.pump: value
-            for excitation, value in zip(excitation_transition, height)
-        },
+        values={excitation.pump: height for excitation, height in excitation.items()},
     )
     if not join_by_energy:
         for line in lines:
@@ -192,14 +182,11 @@ def time_resolved_emission(
 
 def steady_state_emission(
     system: SpectroscopicSystem,
-    excitation_transition: Pumper,
-    height: float,
+    excitation: Excitation,
     kind: util.SpectraKind = "emission",
     solver: Solver = LSODA(),
 ):
-    spectral = spectral_steady_state_emission(
-        system, excitation_transition, height, kind, solver=solver
-    )
+    spectral = spectral_steady_state_emission(system, excitation, kind, solver=solver)
 
     summed = spectral.to_array().sum(dim="variable")
     return summed.to_dataset(name="emission")
@@ -208,8 +195,7 @@ def steady_state_emission(
 # TODO: how to excite multiple pumpers? Can't be a dictionary because they are not hashable.
 def emission_spectra(
     system: SpectroscopicSystem,
-    excitation_transition: Pumper | Iterable[Pumper],
-    height: float | Iterable[float],
+    excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
     kind: SpectraKind = "emission",
     solver: Solver = LSODA(),
@@ -218,7 +204,7 @@ def emission_spectra(
     if isinstance(unit, str):
         unit = ureg[unit]
     spectral = spectral_steady_state_emission(
-        system, excitation_transition, height, kind, join_by_energy=True, solver=solver
+        system, excitation, kind, join_by_energy=True, solver=solver
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
@@ -247,7 +233,7 @@ def emission_spectra(
 
 def excitation_emission_matrix(
     system: SpectroscopicSystem,
-    height: float | Iterable[float],
+    height: pint.Quantity,
     unit: str | pint.Unit = ureg.nm,
     solver: Solver = LSODA(),
 ):
@@ -255,8 +241,7 @@ def excitation_emission_matrix(
     for pumper in system._yield(Pumper):
         results[str(pumper)] = emission_spectra(
             system,
-            excitation_transition=pumper,
-            height=height,
+            excitation={pumper: height},
             unit=unit,
             solver=solver,
         )
@@ -266,7 +251,7 @@ def excitation_emission_matrix(
 def excitation_spectra(
     system: SpectroscopicSystem,
     emission: float | int | pint.Quantity,
-    height: float | Iterable[float],
+    height: pint.Quantity,
     unit: str | pint.Unit = ureg.nm,
     solver: Solver = LSODA(),
 ):
@@ -285,8 +270,7 @@ def excitation_spectra(
 
 def widened_emission_spectra(
     system: SpectroscopicSystem,
-    excitation_transition: Pumper | Iterable[Pumper],
-    height: float | Iterable[float],
+    excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
     kind: SpectraKind = "emission",
     samples: Iterable[float] = np.linspace(380, 700, 1000),
@@ -297,9 +281,7 @@ def widened_emission_spectra(
     if isinstance(unit, str):
         unit = ureg[unit]
 
-    spectral = spectral_steady_state_emission(
-        system, excitation_transition, height, kind, solver=solver
-    )
+    spectral = spectral_steady_state_emission(system, excitation, kind, solver=solver)
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
     wavelenghts = {

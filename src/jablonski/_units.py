@@ -1,14 +1,15 @@
 """
-    jablonski._units
-    ~~~~~~~~~~~~~~~~
+jablonski._units
+~~~~~~~~~~~~~~~~
 
-    Units and dimensions.
+Units and dimensions.
 
-    :copyright: 2024 by jablonski Authors, see AUTHORS for more details.
-    :license: BSD, see LICENSE for more details.
+:copyright: 2024 by jablonski Authors, see AUTHORS for more details.
+:license: BSD, see LICENSE for more details.
 """
 
 import pint
+import scipy.constants
 
 ureg = pint.get_application_registry()
 
