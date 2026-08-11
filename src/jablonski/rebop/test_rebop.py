@@ -1,6 +1,7 @@
 import numpy as np
-import xarray as xr
 import pint
+import xarray as xr
+from poincare.reactions.rebop import RebopSimulator
 
 from jablonski import (
     Simulator,
@@ -9,6 +10,7 @@ from jablonski import (
     TripletState,
     initial,
 )
+
 from ..simulation import (
     delta_excitation,
     piecewise,
@@ -16,17 +18,14 @@ from ..simulation import (
 )
 from ..transitions import (
     Absorption,
+    EnergyTransferUpconversion,
     Fluorescence,
     IntersystemCrossing,
     Phosphorescence,
-    EnergyTransferUpconversion,
 )
-from poincare.reactions.rebop import RebopSimulator
 from .rebop import rebop_piecewise
 
 ureg = pint.get_application_registry()
-
-print(type(Absorption.ground))
 
 
 class Model(SpectroscopicSystem):

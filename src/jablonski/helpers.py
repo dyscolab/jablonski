@@ -1,9 +1,7 @@
-import pint
 import numpy as np
+import pint
 
-from typing import Literal
-
-from ._typing import Pumper, Excitation
+from ._typing import Excitation, Pumper
 from ._units import ureg
 from .states import SpectroscopicSystem
 
@@ -19,7 +17,7 @@ def pump_from_laser(
     width: pint.Quantity,
 ) -> Excitation:
     """Creates excitation affecting all pumpers whose corresponding wavelenght is within linewidth of laser wavelenght.
-    Photon flux is calculated assuming it is at the peak of a gaussian beam of the corresponding power."""
+    Photon flux is calculated assuming it is at the peak of a gaussian beam of the corresponding power and width (as standard deviation)."""
     affected_pumpers = []
     for pumper in system._yield(Pumper):
         pumper_wavelenght = c * h / (pumper.energy_difference)

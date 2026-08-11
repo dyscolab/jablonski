@@ -1,9 +1,9 @@
-from typing import Iterable, Mapping, Hashable
+from typing import Hashable, Iterable
 
-import pint
 import numpy as np
+import pint
 import xarray as xr
-from poincare.solvers import Solver, LSODA
+from poincare.solvers import LSODA, Solver
 
 from . import util
 from ._typing import Excitation
@@ -69,7 +69,6 @@ def sweep_emission_spectra(
             )
     elif len(keys) != len(excitations):
         raise (ValueError("excitation and keys are different lenghts"))
-    print(keys)
     for key, excitation in zip(keys, excitations):
         ds[key] = emission_spectra(
             system=system,

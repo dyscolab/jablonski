@@ -193,8 +193,6 @@ def test_emission_spectra():
             for radiative in Model._yield(RadiativeDecay)
         ]
     )
-    print(result.indexes["wavelenght"])
-    print(wavelenghts)
     assert set(result.indexes["wavelenght"].values) == set(wavelenghts)
 
 
