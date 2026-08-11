@@ -12,6 +12,7 @@ molecular systems.
 from poincare import Parameter, Simulator, assign
 
 from . import simulation, sweeps, transitions, util
+from .helpers import pump_from_laser
 from .states import SingletState, SpectroscopicSystem, TripletState, initial
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "assign",
     "Parameter",
     "Simulator",
+    "pump_from_laser",
 ]

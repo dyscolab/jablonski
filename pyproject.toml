@@ -5,7 +5,7 @@ authors = [
   { name = "Hernan E. Grecco", email = "hernan.grecco@gmail.com" },
 ]
 description = "Write and simulate ODE systems to describe the transitions in spectroscopic molecular systems."
-version = "0.3.0"
+version = "0.3.1"
 requires-python = ">=3.12"
 keywords = []
 license = "BSD-3-Clause"
