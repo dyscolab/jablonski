@@ -57,10 +57,9 @@ def rebop_piecewise(
 
     previous = 0 * ureg.s
     for upto_t, n_points in zip(upto_ts, point_distribution):
-        ds = rsim.solve(
+        ds = rsim.with_values(state).solve(
             upto_t=upto_t - previous,
             n_points=n_points,
-            values=state,
             rng=rng,
             sparse=sparse,
             var_names=var_names,

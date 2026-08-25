@@ -9,7 +9,7 @@ Simulation functions.
 """
 
 from itertools import chain, pairwise
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 import numpy as np
 import numpy.typing as npt
@@ -17,9 +17,9 @@ import pint
 import pint_xarray
 import scipy.constants as constants
 import xarray as xr
+
 from poincare import Simulator, SteadyState
 from poincare.simulator import Components, Initial
-from poincare.solvers import Solver, LSODA
 from symbolite import Real
 
 from . import util
@@ -37,7 +37,6 @@ def piecewise(
     *,
     events: dict[Time, Mapping[Components, Initial | Real | None]],
     save_at: npt.NDArray[np.float64],
-    solver: Solver = LSODA(),
 ) -> xr.Dataset:
     try:
         event_keys = np.array([key.to(ureg.s).magnitude for key in events.keys()])
@@ -45,7 +44,7 @@ def piecewise(
         raise pint.PintError(
             "events keys must be pint Quantities and have time dimensionality."
         )
-
+    
     try:
         adimensional_save_at = save_at.to(ureg.s).magnitude
     except (AttributeError, pint.DimensionalityError):
@@ -62,7 +61,7 @@ def piecewise(
     dss = []
     state = {}
     for t_span, save_at in zip(t_spans, save_ats):
-        ds = sim.solve(t_span=t_span, save_at=save_at, values=state, solver=solver)
+        ds = sim.with_values(state).solve(t_span=t_span, save_at=save_at)
         for k, v in events.get(save_at[-1], {}).items():
             if v is None and k in state:
                 del state[k]
@@ -110,24 +109,22 @@ def delta_excitation(
 
 
 def spectral_time_resolved_emission(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
     save_at: npt.NDArray[np.float64],
     kind: util.SpectraKind = "emission",
     join_by_energy: bool = False,
-    solver: Solver = LSODA(),
 ) -> xr.Dataset:
     """Single transition square excitation."""
-
     lines = {
         f"line_{transition}": transition
-        for transition in util.emission_transitions(system, kind=kind)
+        for transition in util.emission_transitions(sim.model, kind=kind)
     }
 
     transform = {k: v.radiative_decay.rate_law for k, v in lines.items()}
 
-    sim = Simulator(system, transform=transform, append_transform=True)
-    ds = piecewise(sim, events=excitation, save_at=save_at, solver=solver)
+    sim = sim.with_transform(transform, append=True)
+    ds = piecewise(sim, events=excitation, save_at=save_at)
     if not join_by_energy:
         for line in lines:
             ds.attrs[line] = lines[line].energy_difference
@@ -137,26 +134,24 @@ def spectral_time_resolved_emission(
 
 
 def spectral_steady_state_emission(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     excitation: Excitation,
     kind: util.SpectraKind = "emission",
     join_by_energy: bool = False,
-    solver: Solver = LSODA(),
 ) -> xr.Dataset:
 
     lines = {
         f"line_{transition}": transition
-        for transition in util.emission_transitions(system, kind=kind)
+        for transition in util.emission_transitions(sim.model, kind=kind)
     }
 
     transform = {k: v.radiative_decay.rate_law for k, v in lines.items()}
-    sim = Simulator(system, transform=transform)
-    steady = SteadyState(solver=solver)
-
-    ds = steady.solve(
-        sim,
-        values={excitation.pump: height for excitation, height in excitation.items()},
+    sim = sim.with_transform(transform)
+    steady = SteadyState()
+    sim = sim.with_values(
+        {excitation.pump: height for excitation, height in excitation.items()}
     )
+    ds = steady.solve(sim)
     if not join_by_energy:
         for line in lines:
             ds.attrs[line] = lines[line].energy_difference
@@ -166,45 +161,38 @@ def spectral_steady_state_emission(
 
 
 def time_resolved_emission(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
     save_at: npt.NDArray[np.float64],
     kind: util.SpectraKind = "emission",
-    solver: Solver = LSODA(),
 ):
-    spectral = spectral_time_resolved_emission(
-        system, excitation, save_at, kind, solver=solver
-    )
-
+    spectral = spectral_time_resolved_emission(sim, excitation, save_at, kind)
     summed = spectral.to_array().sum(dim="variable")
     return summed.to_dataset(name="emission")
 
 
 def steady_state_emission(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     excitation: Excitation,
     kind: util.SpectraKind = "emission",
-    solver: Solver = LSODA(),
 ):
-    spectral = spectral_steady_state_emission(system, excitation, kind, solver=solver)
-
+    spectral = spectral_steady_state_emission(sim, excitation, kind)
     summed = spectral.to_array().sum(dim="variable")
     return summed.to_dataset(name="emission")
 
 
 # TODO: how to excite multiple pumpers? Can't be a dictionary because they are not hashable.
 def emission_spectra(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
     kind: SpectraKind = "emission",
-    solver: Solver = LSODA(),
 ):
     """CW emission spectra."""
     if isinstance(unit, str):
         unit = ureg[unit]
     spectral = spectral_steady_state_emission(
-        system, excitation, kind, join_by_energy=True, solver=solver
+        sim, excitation, kind, join_by_energy=True
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
@@ -232,28 +220,25 @@ def emission_spectra(
 
 
 def excitation_emission_matrix(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     height: pint.Quantity,
     unit: str | pint.Unit = ureg.nm,
-    solver: Solver = LSODA(),
 ):
     results = {}
-    for pumper in system._yield(Pumper):
+    for pumper in sim.model._yield(Pumper):
         results[str(pumper)] = emission_spectra(
-            system,
+            sim,
             excitation={pumper: height},
             unit=unit,
-            solver=solver,
         )
     return xr.Dataset(results)
 
 
 def excitation_spectra(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     emission: float | int | pint.Quantity,
     height: pint.Quantity,
     unit: str | pint.Unit = ureg.nm,
-    solver: Solver = LSODA(),
 ):
     """CW excitation spectra."""
     if isinstance(unit, str):
@@ -262,26 +247,24 @@ def excitation_spectra(
         emission = emission * unit
     emission = emission.to(unit).magnitude
     matrix = excitation_emission_matrix(
-        system=system, height=height, unit=unit, solver=solver
+        sim=sim, height=height, unit=unit
     )
     ds = matrix.sel(wavelenght=emission).drop_vars("wavelenght")
     return ds.to_dataarray(dim="pumper", name="exitation spectra")
 
 
 def widened_emission_spectra(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
     kind: SpectraKind = "emission",
     samples: Iterable[float] = np.linspace(380, 700, 1000),
     width: float = 5,
-    solver: Solver = LSODA(),
 ):
     """CW emission spectra."""
     if isinstance(unit, str):
         unit = ureg[unit]
-
-    spectral = spectral_steady_state_emission(system, excitation, kind, solver=solver)
+    spectral = spectral_steady_state_emission(sim, excitation, kind)
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
     wavelenghts = {

@@ -2,6 +2,7 @@ from typing import Hashable, Iterable
 
 import numpy as np
 import pint
+from poincare import Simulator
 import xarray as xr
 from poincare.solvers import LSODA, Solver
 
@@ -14,12 +15,11 @@ from .util import SpectraKind
 
 
 def sweep_spectral_steady_state_emission(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     excitations: Iterable[Excitation],
     keys: Iterable[Hashable] | None = None,
     kind: util.SpectraKind = "emission",
     join_by_energy: bool = False,
-    solver: Solver = LSODA(),
 ):
     ds = xr.Dataset()
     if keys is None:
@@ -36,11 +36,10 @@ def sweep_spectral_steady_state_emission(
     for key, excitation in zip(keys, excitations):
         ds[key] = (
             spectral_steady_state_emission(
-                system=system,
+                sim=sim,
                 excitation=excitation,
                 kind=kind,
                 join_by_energy=join_by_energy,
-                solver=solver,
             )
             .to_dataarray(dim="energy" if join_by_energy else "line")
             .drop_vars("time")
@@ -50,7 +49,7 @@ def sweep_spectral_steady_state_emission(
 
 
 def sweep_emission_spectra(
-    system: SpectroscopicSystem,
+    sim: Simulator,
     excitations: Iterable[Excitation],
     keys: Iterable[Hashable] | None = None,
     unit: str | pint.Unit = ureg.nm,
@@ -71,7 +70,7 @@ def sweep_emission_spectra(
         raise (ValueError("excitation and keys are different lenghts"))
     for key, excitation in zip(keys, excitations):
         ds[key] = emission_spectra(
-            system=system,
+            sim=sim,
             excitation=excitation,
             kind=kind,
             solver=solver,

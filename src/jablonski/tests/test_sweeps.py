@@ -5,6 +5,7 @@ from jablonski import (
     SpectroscopicSystem,
     initial,
 )
+from poincare import Simulator
 
 from ..sweeps import sweep_spectral_steady_state_emission
 from ..transitions import Absorption, Fluorescence
@@ -23,11 +24,12 @@ class Model(SpectroscopicSystem):
     emission_2 = Fluorescence(ground=mid, excited=high, rate=0.5e8 / ureg.s)
     emission_3 = Fluorescence(ground=low, excited=high, rate=1e8 / ureg.s)
 
+sim = Simulator(Model)
 
 def test_sweep_spectral_steady_state_emission():
     values = np.linspace(0, 1e20, 5) / (ureg.cm**2 * ureg.s)
     sweep = sweep_spectral_steady_state_emission(
-        Model, excitations=[{Model.absorption_1: value} for value in values]
+        sim, excitations=[{Model.absorption_1: value} for value in values]
     )
     assert np.all(
         np.asarray([key.magnitude for key in sweep.data_vars.keys()])
@@ -39,7 +41,7 @@ def test_sweep_spectral_steady_state_emission():
 def test_sweep_emission_spectra():
     values = np.linspace(0, 10e20, 5) / (ureg.cm**2 * ureg.s)
     sweep = sweep_spectral_steady_state_emission(
-        Model, excitations=[{Model.absorption_1: value} for value in values]
+        sim, excitations=[{Model.absorption_1: value} for value in values]
     )
 
     assert np.all(

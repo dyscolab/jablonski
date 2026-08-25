@@ -36,9 +36,10 @@ class Model(SpectroscopicSystem):
     emission_2 = Fluorescence(ground=mid, excited=high, rate=0.5e8 / ureg.s)
     emission_3 = Fluorescence(ground=low, excited=high, rate=1e8 / ureg.s)
 
+sim = Simulator(Model)
+
 
 def test_piecewise():
-    sim = Simulator(Model)
     pulse = pulse_excitation(
         excitation={Model.absorption_1: 1e10 / (ureg.cm**2 * ureg.s)},
         start=1e-8 * ureg.s,
@@ -49,24 +50,22 @@ def test_piecewise():
     sim_1_times = times[times < 1e-8] * ureg.s
     result_2_1 = sim.solve(save_at=sim_1_times)
     sim_2_times = times[(times >= 1e-8) & (times < 3e-8)] * ureg.s
-    result_2_2 = sim.solve(
-        save_at=sim_2_times,
-        values={
+    result_2_2 = sim.with_values(
+        {
             Model.absorption_1.pump: 1e10 / (ureg.cm**2 * ureg.s),
             Model.high: result_2_1["high"].values[-1],
             Model.mid: result_2_1["mid"].values[-1],
             Model.low: result_2_1["low"].values[-1],
-        },
-    )
+        }
+    ).solve(save_at=sim_2_times)
     sim_3_times = times[times >= 3e-8] * ureg.s
-    result_2_3 = sim.solve(
-        save_at=sim_3_times,
-        values={
+    result_2_3 = sim.with_values(
+        {
             Model.high: result_2_2["high"].values[-1],
             Model.mid: result_2_2["mid"].values[-1],
             Model.low: result_2_2["low"].values[-1],
-        },
-    )
+        }
+    ).solve(save_at=sim_3_times)
     result_2 = xr.concat(
         [result.pint.dequantify() for result in (result_2_1, result_2_2, result_2_3)],
         dim="time",
@@ -101,7 +100,7 @@ def test_piecewise_with_units():
         width=2e-8 * ureg.s,
     )
 
-    sim = Simulator(Model)
+    
     units_sim = Simulator(UnitsModel)
 
     result_1 = piecewise(sim, events=pulse, save_at=np.linspace(0, 4e-8, 100) * ureg.s)
@@ -118,7 +117,7 @@ def test_time_resolved_emission():
     delta = delta_excitation(Model.absorption_3, start=0 * ureg.s, area=1 / ureg.cm**2)
 
     result = spectral_time_resolved_emission(
-        system=Model,
+        sim,
         excitation=delta,
         save_at=np.linspace(0, 5, 20) * ureg.s,
     )
@@ -129,7 +128,7 @@ def test_time_resolved_emission():
         ]
     )
     joined_result = spectral_time_resolved_emission(
-        system=Model,
+        sim,
         excitation=delta,
         save_at=np.linspace(0, 5, 20) * ureg.s,
         join_by_energy=True,
@@ -139,7 +138,7 @@ def test_time_resolved_emission():
     )
 
     non_spectral = time_resolved_emission(
-        system=Model,
+        sim,
         excitation=delta,
         save_at=np.linspace(0, 5, 20) * ureg.s,
     )
@@ -151,7 +150,7 @@ def test_time_resolved_emission():
 
 def test_steady_state_emission():
     result = spectral_steady_state_emission(
-        system=Model,
+        sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
     )
 
@@ -163,7 +162,7 @@ def test_steady_state_emission():
         + ["event"]
     )
     joined_result = spectral_steady_state_emission(
-        system=Model,
+        sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
         join_by_energy=True,
     )
@@ -171,7 +170,7 @@ def test_steady_state_emission():
         ["1 electron_volt", "2 electron_volt"]
     )
     non_spectral = steady_state_emission(
-        system=Model,
+        sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
     )
     assert np.all(
@@ -182,7 +181,7 @@ def test_steady_state_emission():
 
 def test_emission_spectra():
     result = emission_spectra(
-        system=Model,
+        sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
     )
     h = constants.h * ureg.J * ureg.s
@@ -198,7 +197,7 @@ def test_emission_spectra():
 
 def test_absorption_spectra():
     result = emission_spectra(
-        system=Model,
+        sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
     )
     h = constants.h * ureg.J * ureg.s
