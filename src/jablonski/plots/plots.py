@@ -122,6 +122,7 @@ def model_report(
     return _model_report(
         model=model,
         path=path,
+        transform=transform,
         descriptions=descriptions,
         standalone=standalone,
         replace_algebraics=replace_algebraics,
