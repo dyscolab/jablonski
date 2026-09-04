@@ -54,7 +54,6 @@ def sweep_emission_spectra(
     keys: Iterable[Hashable] | None = None,
     unit: str | pint.Unit = ureg.nm,
     kind: SpectraKind = "emission",
-    solver: Solver = LSODA(),
 ):
     ds = xr.Dataset()
     if keys is None:
@@ -72,7 +71,7 @@ def sweep_emission_spectra(
         ds[key] = emission_spectra(
             sim=sim,
             excitation=excitation,
+            unit = unit,
             kind=kind,
-            solver=solver,
         )
     return ds

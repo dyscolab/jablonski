@@ -7,7 +7,7 @@ from jablonski import (
 )
 from poincare import Simulator
 
-from ..sweeps import sweep_spectral_steady_state_emission
+from ..sweeps import sweep_spectral_steady_state_emission, sweep_emission_spectra
 from ..transitions import Absorption, Fluorescence
 from ..util import ureg
 
@@ -40,7 +40,7 @@ def test_sweep_spectral_steady_state_emission():
 
 def test_sweep_emission_spectra():
     values = np.linspace(0, 10e20, 5) / (ureg.cm**2 * ureg.s)
-    sweep = sweep_spectral_steady_state_emission(
+    sweep = sweep_emission_spectra(
         sim, excitations=[{Model.absorption_1: value} for value in values]
     )
 
