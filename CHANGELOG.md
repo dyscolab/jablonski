@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Updated poincare dependency to 1.2.0, brings breaking changes in values, transform and simulator API (with_values/transform/simulator instead of as argument) and in switching warning on wrong simulation units to error.
+
+- All simulation functions now take simulators instead of system's.
+
+- fix: model report now properly passes on transform to the oncare base version.
+
 ## 0.3.0
 
 - Added pump_from_laser helper to make excitations.
