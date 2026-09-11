@@ -137,6 +137,7 @@ class JablonskiDiagram:
         ),
         fontsize: Number = 10,
         show_energy_axis: bool = True,
+        show_column_names: bool = True,
     ) -> tuple[Axes, Figure]:
 
         # Use energy ranges and figure size
@@ -224,14 +225,18 @@ class JablonskiDiagram:
 
         # Formatting
         ax.set_xlim(-0.05 * self._xscale, self._xscale * 1.1)
-        ax.set_xticks([])
+        if show_column_names:
+            ax.set_xticks([(x_max + x_min)/2 for x_min, x_max in column_positions.values()], self.columns)
+        else:
+            ax.set_xticks([])
+            ax.xaxis.set_visible(False)
+
 
         ax.set_ylim(
             min_energy - self._yscale * 0.05,
             max_energy + self._yscale * 0.05,
         )
 
-        ax.xaxis.set_visible(False)
 
         if show_energy_axis:
             ax.set_ylabel("Energy")

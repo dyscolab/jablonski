@@ -56,11 +56,12 @@ def jablonski_diagram(
 ) -> tuple[Axes, Figure]:
     if isinstance(unit, str):
         unit = ureg[unit]
+    columns = set()
     levels = {
         level: Level(
             label=level.name,
             energy=level.energy.to(unit).magnitude,
-            column=level.multiplicity,
+            column=get_column(level = level, system=system,columns=columns),
         )
         for level in system._yield(SpinState)
     }
@@ -72,17 +73,10 @@ def jablonski_diagram(
         )
         for transition in system._yield(Drawable)
     ]
-    columns = []
-    has_singlet = any(level.column == "singlet" for level in levels.values())
-    has_triplet = any(level.column == "triplet" for level in levels.values())
-    if has_singlet:
-        columns.append("singlet")
-    if has_triplet:
-        columns.append("triplet")
     jd = JablonskiDiagram(
         levels=list(levels.values()),
         transitions=transitions,
-        columns=columns,
+        columns=sorted(list(columns), key=sort_by_multiplicity),
     )
     fig, ax = jd.plot(
         figsize=figsize,
@@ -130,3 +124,17 @@ def model_report(
         sections=sections,
         packages=packages,
     )
+
+
+def get_column(level: SpinState, system: System, columns: set) -> str:
+    if level.parent == system:
+        col = level.multiplicity
+    else: 
+        col = f"{level.parent}-{level.multiplicity}"
+    columns.add(col)
+    return col
+
+def sort_by_multiplicity(s: str) -> tuple[str,int]:
+    base, _, suffix = s.rpartition('-')
+    order = 0 if suffix == 'singlet' else 1
+    return (base, order)
