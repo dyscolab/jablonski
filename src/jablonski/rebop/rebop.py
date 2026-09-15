@@ -19,6 +19,7 @@ from .. import util
 from .._typing import Pumper, Time
 from .._units import DEFAULT_DELTA, ureg
 from ..states import SpectroscopicSystem
+from ..simulation import lines_to_energies
 from ..util import SpectraKind
 
 pint.get_application_registry().force_ndarray_like = False
@@ -83,9 +84,52 @@ def rebop_piecewise(
     ds = xr.concat(dss, dim="time")
 
     pint_xarray.setup_registry(ureg)
-    ds = ds.pint.quantify()
+    ds = ds.pint.quantify({"time": ureg.s})
     ureg.force_ndarray_like = False
-    return ds
+    return ds # TODO: convert to units given by user in upto_t
+
+def rebop_spectral_time_resolved_emission(
+    sim: Simulator,
+    excitation: dict[Time, Mapping[Components, Initial | Real | None]],
+    upto_t: pint.Quantity,
+    n_points: int | None = None,
+    join_by_energy: bool = False,
+    kind: util.SpectraKind = "emission",
+    rng: RNGLike | SeedLike | None = None,
+    sparse: bool = True,
+    var_names: Iterable[Reactant] | None = None,   
+) -> xr.Dataset:
+    """Single transition square excitation."""
+    lines = {
+        f"line_{transition}": transition
+        for transition in util.emission_transitions(sim.model, kind=kind)
+    }
+
+    transform = {k: v.radiative_decay.rate_law for k, v in lines.items()}
+
+    sim = sim.with_transform(transform, append=True)
+    ds = rebop_piecewise(sim, events=excitation, upto_t=upto_t, n_points=n_points, rng=rng, sparse=sparse, var_names=var_names)
+    if not join_by_energy:
+        for line in lines:
+            ds.attrs[line] = lines[line].energy_difference
+        return ds[list(lines.keys())]
+    else:
+        return lines_to_energies(lines, ds)
+
+def rebop_time_resolved_emission(
+    sim: Simulator,
+    excitation: dict[Time, Mapping[Components, Initial | Real | None]],
+    upto_t: pint.Quantity,
+    n_points: int | None = None,
+    kind: util.SpectraKind = "emission",
+    rng: RNGLike | SeedLike | None = None,
+    sparse: bool = True,
+    var_names: Iterable[Reactant] | None = None,   
+):
+    spectral = rebop_spectral_time_resolved_emission(sim, excitation = excitation, upto_t = upto_t, n_points = n_points, kind= kind, rng = rng, sparse = sparse, var_names = var_names)
+    summed = spectral.to_array().sum(dim="variable")
+    return summed.to_dataset(name="emission")
+
 
 
 def distribute_points(upto_ts: Sequence[np.float64], n_points: int) -> Sequence[int]:
@@ -99,3 +143,4 @@ def distribute_points(upto_ts: Sequence[np.float64], n_points: int) -> Sequence[
     # in next line once numpy 2.5.0 is not so new
     points[order[-leftover:]] += 1
     return points.astype(int)
+

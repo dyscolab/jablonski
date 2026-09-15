@@ -80,7 +80,7 @@ def piecewise(
     pint_xarray.setup_registry(ureg)
     ds = ds.pint.quantify()
     ureg.force_ndarray_like = False
-    return ds
+    return ds # TODO: convert to units given by user in save_at
 
 
 def step_excitation(
