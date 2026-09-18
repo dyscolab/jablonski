@@ -35,7 +35,7 @@ pint.get_application_registry().force_ndarray_like = False
 def piecewise(
     sim: Simulator,
     *,
-    events: dict[Time, Mapping[Components, Initial | Real | None]],
+    events: dict[Time, Excitation],
     save_at: npt.NDArray[np.float64],
 ) -> xr.Dataset:
     try:
@@ -110,7 +110,7 @@ def delta_excitation(
 
 def spectral_time_resolved_emission(
     sim: Simulator,
-    excitation: dict[Time, Mapping[Components, Initial | Real | None]],
+    excitation: dict[Time, Excitation],
     save_at: npt.NDArray[np.float64],
     kind: util.SpectraKind = "emission",
     join_by_energy: bool = False,
@@ -181,7 +181,6 @@ def steady_state_emission(
     return summed.to_dataset(name="emission")
 
 
-# TODO: how to excite multiple pumpers? Can't be a dictionary because they are not hashable.
 def emission_spectra(
     sim: Simulator,
     excitation: Excitation,
@@ -213,7 +212,10 @@ def emission_spectra(
         ),
         dims="wavelenght",
         coords={"wavelenght": wavelenghts},
-    ).pint.quantify(unit, pint_xarray.setup_registry(unit._REGISTRY))
+    ).pint.quantify(
+        {"wavelenght": unit},
+        pint_xarray.setup_registry(unit._REGISTRY),
+    )
     unit._REGISTRY.force_ndarray_like = False
     da.name = "spectrum"
     return da
