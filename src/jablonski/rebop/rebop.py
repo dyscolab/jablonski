@@ -52,20 +52,20 @@ def rebop_piecewise(
     upto_ts = np.concatenate([event_keys, [adimensional_upto_t]])
     upto_ts = np.sort(upto_ts)
     point_distribution = distribute_points(upto_ts, n_points)
-    upto_ts = [upto_t * ureg.s for upto_t in upto_ts]
+    upto_ts = [t_step * ureg.s for t_step in upto_ts]
     dss = []
     state = {}
 
     previous = 0 * ureg.s
-    for upto_t, n_points in zip(upto_ts, point_distribution):
+    for t_step, step_n_points in zip(upto_ts, point_distribution):
         ds = rsim.with_values(state).solve(
-            upto_t=upto_t - previous,
-            n_points=n_points,
+            upto_t=t_step - previous,
+            n_points=step_n_points,
             rng=rng,
             sparse=sparse,
             var_names=var_names,
         )
-        for k, v in events.get(upto_t, {}).items():
+        for k, v in events.get(t_step, {}).items():
             if v is None and k in state:
                 del state[k]
             else:
@@ -79,14 +79,15 @@ def rebop_piecewise(
         if previous >= 0 * ureg.s:
             ds = ds.isel(time=slice(1, None))
             ds = ds.assign_coords(time=ds.time + previous)
-        previous = upto_t
+        previous = t_step
         dss.append(ds.pint.dequantify())
     ds = xr.concat(dss, dim="time")
 
     pint_xarray.setup_registry(ureg)
     ds = ds.pint.quantify({"time": ureg.s})
+    ds = ds.pint.to({"time": upto_t.units})
     ureg.force_ndarray_like = False
-    return ds # TODO: convert to units given by user in upto_t
+    return ds
 
 def rebop_spectral_time_resolved_emission(
     sim: Simulator,

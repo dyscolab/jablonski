@@ -63,12 +63,14 @@ def test_rebop_simulation():
     r_sols = []
     sols = []
     for seed in seeds:
-        r_sol = rebop_piecewise(
+        r_sol_raw = rebop_piecewise(
             rsim, events=delta | pulse, upto_t=100 * ureg.ns, n_points=1000, rng=seed
-        ).pint.dequantify()
+        )
+        assert r_sol_raw.time.pint.units == ureg.ns
+        r_sol = r_sol_raw.pint.dequantify()
 
         sol = piecewise(
-            sim, events=delta | pulse, save_at=r_sol.time.values * ureg.s
+            sim, events=delta | pulse, save_at=r_sol.time.values * ureg.ns
         ).pint.dequantify()
         r_sols.append(r_sol)
         sols.append(sol)
@@ -94,6 +96,7 @@ def test_rebop_time_resolved_emission():
         n_points=100,
         rng = seeds[0]
     )
+    assert result.time.pint.units == ureg.ns
     assert set([str(emission) for emission in result.data_vars.keys()]) == set(
         [
             "line_" + str(emission)
@@ -108,6 +111,7 @@ def test_rebop_time_resolved_emission():
         rng = seeds[0],
         join_by_energy=True,
     )
+    assert joined_result.time.pint.units == ureg.ns
     assert set(joined_result.data_vars.keys()) == set(
         ["3 electron_volt", "2 electron_volt"]
     )
@@ -119,6 +123,7 @@ def test_rebop_time_resolved_emission():
         n_points=100,
         rng = seeds[0]
     )
+    assert non_spectral.time.pint.units == ureg.ns
     assert np.all(
         np.asarray(non_spectral.to_array())
         == np.asarray(result.to_array().sum(dim="variable"))
