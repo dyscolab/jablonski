@@ -43,7 +43,11 @@ class Model(SpectroscopicSystem):
     emission_2 = IntersystemCrossing(source=high, target=mid, rate=0.5e8 / ureg.s)
     emission_3 = Fluorescence(ground=low, excited=high, rate=1e8 / ureg.s)
     etu = EnergyTransferUpconversion(
-        sensitizer=mid, activator=low, relaxator=high, rate=1e7 / ureg.s
+        sensitizer_high=mid,
+        sensitizer_low=low,
+        activator_low=mid,
+        activator_high=high,
+        rate=1e7 / ureg.s,
     )
 
 sim = Simulator(Model)

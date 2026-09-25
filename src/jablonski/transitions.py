@@ -325,35 +325,6 @@ class Phosphorescence(SpectroscopicSystem):
 
 
 class EnergyTransferUpconversion(SpectroscopicSystem):
-    sensitizer: SpinState = initial(0.0, spin_multiplicity=None)
-    activator: SpinState = initial(0.0, spin_multiplicity=None)
-    relaxator: SpinState = initial(0.0, spin_multiplicity=None)
-
-    rate: Parameter = assign()
-
-    upconversion = MassAction(
-        reactants=[2 * sensitizer], products=[activator, relaxator], rate=rate
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._source = [self.sensitizer, self.sensitizer]
-        self._target = [self.relaxator, self.activator]
-
-    @property
-    def energy_difference(self) -> pint.Quantity:
-        return (
-            2 * self.sensitizer.energy - self.activator.energy - self.relaxator.energy
-        )
-
-    def _check(self, check_range=False):
-        if self.energy_difference < 0:
-            raise ValueError(
-                "Total energy of final states must not be greater than original states energy"
-            )
-
-
-class EnergyTransferUpconversion4(SpectroscopicSystem):
     sensitizer_high: SpinState = initial(
         0.0, spin_multiplicity=None
     )  # TODO: should this be a generic SpinState?

@@ -192,7 +192,7 @@ def test_emission_spectra():
             for radiative in Model._yield(RadiativeDecay)
         ]
     )
-    assert set(result.indexes["wavelenght"].values) == set(wavelenghts)
+    assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)
 
 
 def test_absorption_spectra():
@@ -208,4 +208,4 @@ def test_absorption_spectra():
             for radiative in Model._yield(Pumper)
         ]
     )
-    assert set(result.indexes["wavelenght"].values) == set(wavelenghts)
+    assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)

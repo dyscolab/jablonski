@@ -17,7 +17,7 @@ from .._typing import Drawable, Pumper, RadiativeDecay, Excitation
 from .._units import ureg
 from ..simulation import widened_emission_spectra
 from ..states import SpectroscopicSystem, SpinState
-from ..transitions import EnergyTransferUpconversion, EnergyTransferUpconversion4
+from ..transitions import EnergyTransferUpconversion
 from ..util import SpectraKind
 from .jablonski_diagrams import (
     ETU_COLORS,
@@ -221,9 +221,7 @@ def jablonski_diagram(
     etu_reactions = []
 
     for transition in system._yield(Drawable):
-        if isinstance(
-            transition, EnergyTransferUpconversion | EnergyTransferUpconversion4
-        ):
+        if isinstance(transition, EnergyTransferUpconversion):
             etu_reactions.append(transition)
         elif isinstance(transition, Pumper | RadiativeDecay):
             sources = (
