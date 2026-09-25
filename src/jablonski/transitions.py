@@ -335,6 +335,11 @@ class EnergyTransferUpconversion(SpectroscopicSystem):
         reactants=[2 * sensitizer], products=[activator, relaxator], rate=rate
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = [self.sensitizer, self.sensitizer]
+        self._target = [self.relaxator, self.activator]
+
     @property
     def energy_difference(self) -> pint.Quantity:
         return (
@@ -364,6 +369,11 @@ class EnergyTransferUpconversion4(SpectroscopicSystem):
         products=[sensitizer_low, activator_high],
         rate=rate,
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = [self.sensitizer_high, self.activator_low]
+        self._target = [self.sensitizer_low, self.activator_high]
 
     @property
     def energy_difference(self) -> pint.Quantity:

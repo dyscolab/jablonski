@@ -9,6 +9,19 @@ from matplotlib.figure import Figure
 Number = float | int
 column = str
 
+ETU_COLORS: list[str] = [
+    "#E63946",  # Crimson Coral
+    "#F77F00",  # Tangerine Orange
+    "#D4A017",  # Golden Amber
+    "#588157",  # Leaf Green
+    "#1B9E77",  # Emerald
+    "#008080",  # Deep Teal
+    "#22577A",  # Ocean Navy
+    "#7209B7",  # Deep Violet
+    "#D81B60",  # Ruby Rose
+    "#8B4513",  # Bronze Rust
+]
+
 
 class Level(NamedTuple):
     label: str
@@ -18,10 +31,13 @@ class Level(NamedTuple):
     linewidth: Number = 2.5
 
 
+TransitionKind = Literal["radiative", "non radiative", "ETU"]
+
+
 class Transition(NamedTuple):
     source: Level
     target: Level
-    radiative: bool
+    kind: TransitionKind
     label: str | None = None
     color: str = "royalblue"
     linewidth: Number = 1
@@ -192,7 +208,7 @@ class JablonskiDiagram:
                         transition.target.energy,
                     ),
                     label=transition.label,
-                    radiative=transition.radiative,
+                    kind=transition.kind,
                     color=transition.color,
                     linewidth=transition.linewidth,
                 )
@@ -205,7 +221,7 @@ class JablonskiDiagram:
                         transition.target.energy,
                     ),
                     label=transition.label,
-                    radiative=transition.radiative,
+                    kind=transition.kind,
                     color=transition.color,
                     linewidth=transition.linewidth,
                 )
@@ -218,7 +234,7 @@ class JablonskiDiagram:
                         transition.target.energy,
                     ),
                     label=transition.label,
-                    radiative=transition.radiative,
+                    kind=transition.kind,
                     color=transition.color,
                     linewidth=transition.linewidth,
                 )
@@ -253,14 +269,14 @@ class JablonskiDiagram:
         start: tuple[Number, Number],
         end: tuple[Number, Number],
         label: str | None,
-        radiative: bool,
+        kind: TransitionKind | bool,
         color="royalblue",
         linewidth: Number = 1,
     ):
         x1, y1 = start
         x2, y2 = end
 
-        if radiative:
+        if kind == "radiative":
             ax.annotate(
                 "",
                 xy=(x2, y2),
@@ -268,6 +284,18 @@ class JablonskiDiagram:
                 arrowprops=dict(
                     arrowstyle="->",
                     linestyle="-",
+                    color=color,
+                    lw=linewidth,
+                ),
+            )
+        elif kind == "ETU":
+            ax.annotate(
+                "",
+                xy=(x2, y2),
+                xytext=(x1, y1),
+                arrowprops=dict(
+                    arrowstyle="->",
+                    linestyle="--",
                     color=color,
                     lw=linewidth,
                 ),

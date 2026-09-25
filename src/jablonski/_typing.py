@@ -9,7 +9,7 @@ Types and type alias.
 """
 
 from typing import Literal, Protocol, TypeAlias, runtime_checkable
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 import pint
 from poincare import Parameter, Variable
@@ -38,5 +38,5 @@ class RadiativeDecay(Protocol):
 
 @runtime_checkable
 class Drawable(Protocol):
-    _source: Variable
-    _target: Variable
+    _source: Variable | Sequence[Variable]
+    _target: Variable | Sequence[Variable]
