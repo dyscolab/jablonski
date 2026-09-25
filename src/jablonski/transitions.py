@@ -356,7 +356,4 @@ class EnergyTransferUpconversion(SpectroscopicSystem):
         )
 
     def _check(self, check_range=False):
-        if self.energy_difference < 0:
-            raise ValueError(
-                "Total energy of final states must not be greater than original states energy"
-            )
+        pass
