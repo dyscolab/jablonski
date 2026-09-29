@@ -12,13 +12,18 @@ from jablonski._typing import Pumper, RadiativeDecay
 
 from .._units import ureg
 from ..simulation import (
+    absorption_spectra,
     delta_excitation,
     emission_spectra,
     piecewise,
     pulse_excitation,
+    spectral_steady_state_absorption,
     spectral_steady_state_emission,
+    spectral_time_resolved_absorption,
     spectral_time_resolved_emission,
+    steady_state_absorption,
     steady_state_emission,
+    time_resolved_absorption,
     time_resolved_emission,
 )
 from ..transitions import Absorption, Fluorescence
@@ -195,8 +200,74 @@ def test_emission_spectra():
     assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)
 
 
+def test_time_resolved_absorption():
+    delta = delta_excitation(Model.absorption_3, start=0 * ureg.s, area=1 / ureg.cm**2)
+
+    result = spectral_time_resolved_absorption(
+        sim,
+        excitation=delta,
+        save_at=np.linspace(0, 5, 20) * ureg.s,
+    )
+    assert set([str(absorption) for absorption in result.data_vars.keys()]) == set(
+        [
+            "line_" + str(absorption)
+            for absorption in [Model.absorption_1, Model.absorption_2, Model.absorption_3]
+        ]
+    )
+    joined_result = spectral_time_resolved_absorption(
+        sim,
+        excitation=delta,
+        save_at=np.linspace(0, 5, 20) * ureg.s,
+        join_by_energy=True,
+    )
+    assert set(joined_result.data_vars.keys()) == set(
+        ["1 electron_volt", "2 electron_volt"]
+    )
+
+    non_spectral = time_resolved_absorption(
+        sim,
+        excitation=delta,
+        save_at=np.linspace(0, 5, 20) * ureg.s,
+    )
+    assert np.all(
+        np.asarray(non_spectral.to_array())
+        == np.asarray(result.to_array().sum(dim="variable"))
+    )
+
+
+def test_steady_state_absorption():
+    result = spectral_steady_state_absorption(
+        sim,
+        excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+    )
+
+    assert set([str(absorption) for absorption in result.data_vars.keys()]) == set(
+        [
+            "line_" + str(absorption)
+            for absorption in [Model.absorption_1, Model.absorption_2, Model.absorption_3]
+        ]
+        + ["event"]
+    )
+    joined_result = spectral_steady_state_absorption(
+        sim,
+        excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+        join_by_energy=True,
+    )
+    assert set(joined_result.data_vars.keys()) == set(
+        ["1 electron_volt", "2 electron_volt"]
+    )
+    non_spectral = steady_state_absorption(
+        sim,
+        excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+    )
+    assert np.all(
+        np.asarray(non_spectral.to_array())
+        == np.asarray(result.to_array().sum(dim="variable"))
+    )
+
+
 def test_absorption_spectra():
-    result = emission_spectra(
+    result = absorption_spectra(
         sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
     )

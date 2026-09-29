@@ -22,7 +22,7 @@ from poincare import Simulator, SteadyState
 from poincare.simulator import Components, Initial
 from symbolite import Real
 
-from . import util
+from . import util, util
 from ._typing import Pumper, Time, Excitation
 from ._units import DEFAULT_DELTA, ureg
 from .states import SpectroscopicSystem
@@ -221,6 +221,116 @@ def emission_spectra(
     return da
 
 
+def spectral_time_resolved_absorption(
+    sim: Simulator,
+    excitation: dict[Time, Excitation],
+    save_at: npt.NDArray[np.float64],
+    join_by_energy: bool = False,
+) -> xr.Dataset:
+    """Time resolved absorption given a certain excitation"""
+    lines = {
+        f"line_{transition}": transition
+        for transition in util.excitation_transitions(sim.model)
+    }
+
+    transform = {k: v.absorption.rate_law for k, v in lines.items()}
+
+    sim = sim.with_transform(transform, append=True)
+    ds = piecewise(sim, events=excitation, save_at=save_at)
+
+    if not join_by_energy:
+        for line in lines:
+            ds.attrs[line] = lines[line].energy_difference
+        return ds[list(lines.keys())]
+    else:
+        return lines_to_energies(lines, ds)
+
+
+def spectral_steady_state_absorption(
+    sim: Simulator,
+    excitation: Excitation,
+    join_by_energy: bool = False,
+) -> xr.Dataset:
+
+    lines = {
+        f"line_{transition}": transition
+        for transition in util.excitation_transitions(sim.model)
+    }
+
+    transform = {k: v.absorption.rate_law for k, v in lines.items()}
+    sim = sim.with_transform(transform)
+    steady = SteadyState()
+    sim = sim.with_values(
+        {pumper.pump: height for pumper, height in excitation.items()}
+    )
+    ds = steady.solve(sim)
+    if not join_by_energy:
+        for line in lines:
+            ds.attrs[line] = lines[line].energy_difference
+        return ds
+    else:
+        return lines_to_energies(lines, ds)
+
+
+def time_resolved_absorption(
+    sim: Simulator,
+    excitation: dict[Time, Mapping[Components, Initial | Real | None]],
+    save_at: npt.NDArray[np.float64],
+):
+    spectral = spectral_time_resolved_absorption(sim, excitation, save_at)
+    summed = spectral.to_array().sum(dim="variable")
+    return summed.to_dataset(name="absorption")
+
+
+def steady_state_absorption(
+    sim: Simulator,
+    excitation: Excitation,
+):
+    spectral = spectral_steady_state_absorption(sim, excitation)
+    summed = spectral.to_array().sum(dim="variable")
+    return summed.to_dataset(name="absorption")
+
+
+def absorption_spectra(
+    sim: Simulator,
+    excitation: Excitation,
+    unit: str | pint.Unit = ureg.nm,
+    **kwargs,
+):
+    """CW absorption spectra."""
+    if isinstance(unit, str):
+        unit = ureg[unit]
+    spectral = spectral_steady_state_absorption(
+        sim, excitation, join_by_energy=True, **kwargs
+    )
+    h = constants.h * ureg.J * ureg.s
+    c = constants.c * ureg.m / ureg.s
+    wavelenghts = np.array(
+        [
+            (c * h / spectral.attrs[energy]).to(unit).magnitude
+            for energy in spectral.data_vars.keys()
+        ]
+    )
+    import pint_xarray
+
+    da = xr.DataArray(
+        data=np.array(
+            [
+                spectral[energy].pint.dequantify().values.item()
+                for energy in spectral.data_vars.keys()
+            ]
+        ),
+        dims="wavelenght",
+        coords={"wavelenght": wavelenghts},
+    ).pint.quantify(
+        {"wavelenght": unit},
+        pint_xarray.setup_registry(unit._REGISTRY),
+    )
+    unit._REGISTRY.force_ndarray_like = False
+    da.name = "spectrum"
+    return da
+
+
 def excitation_emission_matrix(
     sim: Simulator,
     height: pint.Quantity,
@@ -242,7 +352,8 @@ def excitation_spectra(
     height: pint.Quantity,
     unit: str | pint.Unit = ureg.nm,
 ):
-    """CW excitation spectra."""
+    """CW excita    "Simulator",
+tion spectra."""
     if isinstance(unit, str):
         unit = ureg[unit]
     if not isinstance(emission, pint.Quantity):

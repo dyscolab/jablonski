@@ -34,10 +34,8 @@ SpectraKind = Literal["emission", "fluorescence", "phosphorescence"]
 def excitation_transitions(
     system: SpectroscopicSystem,
 ) -> Generator[Pumper, None, None]:
-
-    for transition in system._yield(SpectroscopicSystem):
-        if isinstance(transition, Pumper):
-            yield transition
+    for transition in system._yield(Pumper):
+        yield transition
 
 
 def emission_transitions(

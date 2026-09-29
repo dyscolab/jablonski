@@ -23,6 +23,7 @@ SpinMultiplicity = Literal["singlet", "triplet"] | None
 @runtime_checkable
 class Pumper(Protocol):
     pump: Parameter
+    absorption: Parameter
 
     @property
     def energy_difference(self) -> pint.Quantity: ...
