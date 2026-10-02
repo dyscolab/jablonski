@@ -28,7 +28,7 @@ _ClassInfo: TypeAlias = type | UnionType | tuple["_ClassInfo", ...]
 
 ureg = pint.get_application_registry()
 
-SpectraKind = Literal["emission", "fluorescence", "phosphorescence"]
+SpectraKind = Literal["emission", "fluorescence", "phosphorescence", "absorption"]
 
 
 def excitation_transitions(
@@ -54,6 +54,27 @@ def emission_transitions(
     for transition in system._yield(include):
         if isinstance(transition, RadiativeDecay):
             yield transition
+
+def lines_and_transform(
+    system: SpectroscopicSystem,
+    kind: SpectraKind = "emission",
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    if kind == "absorption":
+        lines = {
+            f"line_{transition}": transition
+            for transition in excitation_transitions(system)
+        }
+        transform = {k: v.absorption.rate_law for k, v in lines.items()}
+    elif kind in ("emission", "fluorescence", "phosphorescence"):
+        lines = {
+            f"line_{transition}": transition
+            for transition in emission_transitions(system, kind=kind)
+        }
+        transform = {k: v.radiative_decay.rate_law for k, v in lines.items()}
+    else:
+        raise ValueError(f"kind must be {SpectraKind}")
+
+    return lines, transform
 
 
 def convert():

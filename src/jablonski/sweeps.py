@@ -9,12 +9,15 @@ from poincare.solvers import LSODA, Solver
 from . import util
 from ._typing import Excitation
 from ._units import ureg
-from .simulation import emission_spectra, spectral_steady_state_emission
+from .simulation import (
+    spectra,
+    spectral_steady_state,
+)
 from .states import SpectroscopicSystem
 from .util import SpectraKind
 
 
-def sweep_spectral_steady_state_emission(
+def sweep_spectral_steady_state(
     sim: Simulator,
     excitations: Iterable[Excitation],
     keys: Iterable[Hashable] | None = None,
@@ -28,14 +31,14 @@ def sweep_spectral_steady_state_emission(
         else:
             raise (
                 ValueError(
-                    "sweep_spectral_steady_state_emission must pass an explicit keys argument if any excitation in excitations has more than one argument"
+                    "sweep_spectral_steady_state must pass an explicit keys argument if any excitation in excitations has more than one argument"
                 )
             )
     elif len(keys) != len(excitations):
         raise (ValueError("excitation and keys are different lengths"))
     for key, excitation in zip(keys, excitations):
         ds[key] = (
-            spectral_steady_state_emission(
+            spectral_steady_state(
                 sim=sim,
                 excitation=excitation,
                 kind=kind,
@@ -48,7 +51,7 @@ def sweep_spectral_steady_state_emission(
     return ds
 
 
-def sweep_emission_spectra(
+def sweep_spectra(
     sim: Simulator,
     excitations: Iterable[Excitation],
     keys: Iterable[Hashable] | None = None,
@@ -62,16 +65,53 @@ def sweep_emission_spectra(
         else:
             raise (
                 ValueError(
-                    "sweep_emission_spectra must pass an explicit keys argument if any excitation in excitations has more than one item"
+                    "sweep_spectra must pass an explicit keys argument if any excitation in excitations has more than one item"
                 )
             )
     elif len(keys) != len(excitations):
-        raise (ValueError("excitation and keys are different lenghts"))
+        raise (ValueError("excitation and keys are different lengths"))
     for key, excitation in zip(keys, excitations):
-        ds[key] = emission_spectra(
+        ds[key] = spectra(
             sim=sim,
             excitation=excitation,
-            unit = unit,
+            unit=unit,
             kind=kind,
         )
     return ds
+
+
+# =============================================================================
+# Backward Compatibility Wrappers
+# =============================================================================
+
+
+def sweep_spectral_steady_state_emission(
+    sim: Simulator,
+    excitations: Iterable[Excitation],
+    keys: Iterable[Hashable] | None = None,
+    kind: util.SpectraKind = "emission",
+    join_by_energy: bool = False,
+):
+    return sweep_spectral_steady_state(
+        sim=sim,
+        excitations=excitations,
+        keys=keys,
+        kind=kind,
+        join_by_energy=join_by_energy,
+    )
+
+
+def sweep_emission_spectra(
+    sim: Simulator,
+    excitations: Iterable[Excitation],
+    keys: Iterable[Hashable] | None = None,
+    unit: str | pint.Unit = ureg.nm,
+    kind: SpectraKind = "emission",
+):
+    return sweep_spectra(
+        sim=sim,
+        excitations=excitations,
+        keys=keys,
+        unit=unit,
+        kind=kind,
+    )

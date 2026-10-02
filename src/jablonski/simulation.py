@@ -10,6 +10,7 @@ Simulation functions.
 
 from itertools import chain, pairwise
 from collections.abc import Iterable, Mapping
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -22,7 +23,7 @@ from poincare import Simulator, SteadyState
 from poincare.simulator import Components, Initial
 from symbolite import Real
 
-from . import util, util
+from . import util
 from ._typing import Pumper, Time, Excitation
 from ._units import DEFAULT_DELTA, ureg
 from .states import SpectroscopicSystem
@@ -108,20 +109,36 @@ def delta_excitation(
     return pulse_excitation({excitation_transition: height}, width, start)
 
 
-def spectral_time_resolved_emission(
+def lines_to_energies(lines: Mapping[str, Any], ds: xr.Dataset) -> xr.Dataset:
+    energies = {}
+    for line, transition in lines.items():
+        if transition.energy_difference in energies:
+            energies[transition.energy_difference].append(line)
+        else:
+            energies[transition.energy_difference] = [line]
+    energies_ds = xr.Dataset(
+        {
+            # sum over all lines with the same energy
+            str(energy): xr.concat([ds[line] for line in e_lines], dim="temp").sum(
+                dim="temp"
+            )
+            for energy, e_lines in energies.items()
+        }
+    )
+    for energy in energies.keys():
+        energies_ds.attrs[str(energy)] = energy
+    return energies_ds
+
+
+def spectral_time_resolved(
     sim: Simulator,
     excitation: dict[Time, Excitation],
     save_at: npt.NDArray[np.float64],
     kind: util.SpectraKind = "emission",
     join_by_energy: bool = False,
 ) -> xr.Dataset:
-    """Single transition square excitation."""
-    lines = {
-        f"line_{transition}": transition
-        for transition in util.emission_transitions(sim.model, kind=kind)
-    }
-
-    transform = {k: v.radiative_decay.rate_law for k, v in lines.items()}
+    """Time resolved spectral simulation."""
+    lines, transform = util.lines_and_transform(sim.model, kind=kind)
 
     sim = sim.with_transform(transform, append=True)
     ds = piecewise(sim, events=excitation, save_at=save_at)
@@ -133,138 +150,15 @@ def spectral_time_resolved_emission(
         return lines_to_energies(lines, ds)
 
 
-def spectral_steady_state_emission(
+def spectral_steady_state(
     sim: Simulator,
     excitation: Excitation,
     kind: util.SpectraKind = "emission",
     join_by_energy: bool = False,
 ) -> xr.Dataset:
+    """Steady state spectral simulation."""
+    lines, transform = util.lines_and_transform(sim.model, kind=kind)
 
-    lines = {
-        f"line_{transition}": transition
-        for transition in util.emission_transitions(sim.model, kind=kind)
-    }
-
-    transform = {k: v.radiative_decay.rate_law for k, v in lines.items()}
-    sim = sim.with_transform(transform)
-    steady = SteadyState()
-    sim = sim.with_values(
-        {excitation.pump: height for excitation, height in excitation.items()}
-    )
-    ds = steady.solve(sim)
-    if not join_by_energy:
-        for line in lines:
-            ds.attrs[line] = lines[line].energy_difference
-        return ds
-    else:
-        return lines_to_energies(lines, ds)
-
-
-def time_resolved_emission(
-    sim: Simulator,
-    excitation: dict[Time, Mapping[Components, Initial | Real | None]],
-    save_at: npt.NDArray[np.float64],
-    kind: util.SpectraKind = "emission",
-):
-    spectral = spectral_time_resolved_emission(sim, excitation, save_at, kind)
-    summed = spectral.to_array().sum(dim="variable")
-    return summed.to_dataset(name="emission")
-
-
-def steady_state_emission(
-    sim: Simulator,
-    excitation: Excitation,
-    kind: util.SpectraKind = "emission",
-):
-    spectral = spectral_steady_state_emission(sim, excitation, kind)
-    summed = spectral.to_array().sum(dim="variable")
-    return summed.to_dataset(name="emission")
-
-
-def emission_spectra(
-    sim: Simulator,
-    excitation: Excitation,
-    unit: str | pint.Unit = ureg.nm,
-    kind: SpectraKind = "emission",
-):
-    """CW emission spectra."""
-    if isinstance(unit, str):
-        unit = ureg[unit]
-    spectral = spectral_steady_state_emission(
-        sim, excitation, kind, join_by_energy=True
-    )
-    h = constants.h * ureg.J * ureg.s
-    c = constants.c * ureg.m / ureg.s
-    wavelenghts = np.array(
-        [
-            (c * h / spectral.attrs[energy]).to(unit).magnitude
-            for energy in spectral.data_vars.keys()
-        ]
-    )
-    first_var = next(iter(spectral.data_vars.values()), None)
-    data_unit = first_var.pint.units if first_var is not None else None
-    import pint_xarray
-
-    da = xr.DataArray(
-        data=np.array(
-            [
-                (
-                    spectral[energy].pint.to(data_unit).pint.dequantify().values.item()
-                    if data_unit is not None
-                    else spectral[energy].pint.dequantify().values.item()
-                )
-                for energy in spectral.data_vars.keys()
-            ]
-        ),
-        dims="wavelenght",
-        coords={"wavelenght": wavelenghts},
-    ).pint.quantify(
-        units=data_unit,
-        wavelenght=unit,
-        unit_registry=pint_xarray.setup_registry(unit._REGISTRY),
-    )
-    unit._REGISTRY.force_ndarray_like = False
-    da.name = "spectrum"
-    return da
-
-
-def spectral_time_resolved_absorption(
-    sim: Simulator,
-    excitation: dict[Time, Excitation],
-    save_at: npt.NDArray[np.float64],
-    join_by_energy: bool = False,
-) -> xr.Dataset:
-    """Time resolved absorption given a certain excitation"""
-    lines = {
-        f"line_{transition}": transition
-        for transition in util.excitation_transitions(sim.model)
-    }
-
-    transform = {k: v.absorption.rate_law for k, v in lines.items()}
-
-    sim = sim.with_transform(transform, append=True)
-    ds = piecewise(sim, events=excitation, save_at=save_at)
-
-    if not join_by_energy:
-        for line in lines:
-            ds.attrs[line] = lines[line].energy_difference
-        return ds[list(lines.keys())]
-    else:
-        return lines_to_energies(lines, ds)
-
-
-def spectral_steady_state_absorption(
-    sim: Simulator,
-    excitation: Excitation,
-    join_by_energy: bool = False,
-) -> xr.Dataset:
-
-    lines = {
-        f"line_{transition}": transition
-        for transition in util.excitation_transitions(sim.model)
-    }
-
-    transform = {k: v.absorption.rate_law for k, v in lines.items()}
     sim = sim.with_transform(transform)
     steady = SteadyState()
     sim = sim.with_values(
@@ -279,36 +173,40 @@ def spectral_steady_state_absorption(
         return lines_to_energies(lines, ds)
 
 
-def time_resolved_absorption(
+def time_resolved(
     sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
     save_at: npt.NDArray[np.float64],
+    kind: util.SpectraKind = "emission",
 ):
-    spectral = spectral_time_resolved_absorption(sim, excitation, save_at)
+    spectral = spectral_time_resolved(sim, excitation, save_at, kind=kind)
     summed = spectral.to_array().sum(dim="variable")
-    return summed.to_dataset(name="absorption")
+    name = "absorption" if kind == "absorption" else "emission"
+    return summed.to_dataset(name=name)
 
 
-def steady_state_absorption(
+def steady_state(
     sim: Simulator,
     excitation: Excitation,
+    kind: util.SpectraKind = "emission",
 ):
-    spectral = spectral_steady_state_absorption(sim, excitation)
+    spectral = spectral_steady_state(sim, excitation, kind=kind)
     summed = spectral.to_array().sum(dim="variable")
-    return summed.to_dataset(name="absorption")
+    name = "absorption" if kind == "absorption" else "emission"
+    return summed.to_dataset(name=name)
 
 
-def absorption_spectra(
+def spectra(
     sim: Simulator,
     excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
-    **kwargs,
+    kind: SpectraKind = "emission",
 ):
-    """CW absorption spectra."""
+    """CW spectra."""
     if isinstance(unit, str):
         unit = ureg[unit]
-    spectral = spectral_steady_state_absorption(
-        sim, excitation, join_by_energy=True, **kwargs
+    spectral = spectral_steady_state(
+        sim, excitation, kind=kind, join_by_energy=True
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
@@ -352,10 +250,11 @@ def excitation_emission_matrix(
 ):
     results = {}
     for pumper in sim.model._yield(Pumper):
-        results[str(pumper)] = emission_spectra(
+        results[str(pumper)] = spectra(
             sim,
             excitation={pumper: height},
             unit=unit,
+            kind="emission",
         )
     return xr.Dataset(results)
 
@@ -379,7 +278,7 @@ def excitation_spectra(
     return ds.to_dataarray(dim="pumper", name="exitation spectra")
 
 
-def widened_emission_spectra(
+def widened_spectra(
     sim: Simulator,
     excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
@@ -387,10 +286,10 @@ def widened_emission_spectra(
     samples: Iterable[float] = np.linspace(380, 700, 1000),
     width: float = 5,
 ):
-    """CW emission spectra."""
+    """CW spectra."""
     if isinstance(unit, str):
         unit = ureg[unit]
-    spectral = spectral_steady_state_emission(sim, excitation, kind)
+    spectral = spectral_steady_state(sim, excitation, kind=kind)
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
     wavelenghts = {
@@ -426,22 +325,76 @@ def widened_emission_spectra(
     return da
 
 
-def lines_to_energies(lines: Mapping[str, Pumper], ds: xr.Dataset) -> xr.Dataset:
-    energies = {}
-    for line, transition in lines.items():
-        if transition.energy_difference in energies:
-            energies[transition.energy_difference].append(line)
-        else:
-            energies[transition.energy_difference] = [line]
-    energies_ds = xr.Dataset(
-        {
-            # sum over all lines with the same energy
-            str(energy): xr.concat([ds[line] for line in e_lines], dim="temp").sum(
-                dim="temp"
-            )
-            for energy, e_lines in energies.items()
-        }
+# =============================================================================
+# Backward Compatibility Wrappers
+# =============================================================================
+
+
+def spectral_time_resolved_emission(
+    sim: Simulator,
+    excitation: dict[Time, Excitation],
+    save_at: npt.NDArray[np.float64],
+    kind: util.SpectraKind = "emission",
+    join_by_energy: bool = False,
+) -> xr.Dataset:
+    """Single transition square excitation."""
+    return spectral_time_resolved(
+        sim, excitation, save_at, kind=kind, join_by_energy=join_by_energy
     )
-    for energy in energies.keys():
-        energies_ds.attrs[str(energy)] = energy
-    return energies_ds
+
+
+def spectral_steady_state_emission(
+    sim: Simulator,
+    excitation: Excitation,
+    kind: util.SpectraKind = "emission",
+    join_by_energy: bool = False,
+) -> xr.Dataset:
+    return spectral_steady_state(
+        sim, excitation, kind=kind, join_by_energy=join_by_energy
+    )
+
+
+def time_resolved_emission(
+    sim: Simulator,
+    excitation: dict[Time, Mapping[Components, Initial | Real | None]],
+    save_at: npt.NDArray[np.float64],
+    kind: util.SpectraKind = "emission",
+):
+    return time_resolved(sim, excitation, save_at, kind=kind)
+
+
+def steady_state_emission(
+    sim: Simulator,
+    excitation: Excitation,
+    kind: util.SpectraKind = "emission",
+):
+    return steady_state(sim, excitation, kind=kind)
+
+
+def emission_spectra(
+    sim: Simulator,
+    excitation: Excitation,
+    unit: str | pint.Unit = ureg.nm,
+    kind: SpectraKind = "emission",
+):
+    """CW emission spectra."""
+    return spectra(sim, excitation, unit=unit, kind=kind)
+
+
+def widened_emission_spectra(
+    sim: Simulator,
+    excitation: Excitation,
+    unit: str | pint.Unit = ureg.nm,
+    kind: SpectraKind = "emission",
+    samples: Iterable[float] = np.linspace(380, 700, 1000),
+    width: float = 5,
+):
+    """CW emission spectra."""
+    return widened_spectra(
+        sim,
+        excitation=excitation,
+        unit=unit,
+        kind=kind,
+        samples=samples,
+        width=width,
+    )

@@ -12,19 +12,14 @@ from jablonski._typing import Pumper, RadiativeDecay
 
 from .._units import ureg
 from ..simulation import (
-    absorption_spectra,
     delta_excitation,
-    emission_spectra,
     piecewise,
     pulse_excitation,
-    spectral_steady_state_absorption,
-    spectral_steady_state_emission,
-    spectral_time_resolved_absorption,
-    spectral_time_resolved_emission,
-    steady_state_absorption,
-    steady_state_emission,
-    time_resolved_absorption,
-    time_resolved_emission,
+    spectra,
+    spectral_steady_state,
+    spectral_time_resolved,
+    steady_state,
+    time_resolved,
 )
 from ..transitions import Absorption, Fluorescence
 
@@ -121,10 +116,11 @@ def test_piecewise_with_units():
 def test_time_resolved_emission():
     delta = delta_excitation(Model.absorption_3, start=0 * ureg.s, area=1 / ureg.cm**2)
 
-    result = spectral_time_resolved_emission(
+    result = spectral_time_resolved(
         sim,
         excitation=delta,
         save_at=np.linspace(0, 5, 20) * ureg.s,
+        kind="emission",
     )
     assert set([str(emission) for emission in result.data_vars.keys()]) == set(
         [
@@ -132,20 +128,22 @@ def test_time_resolved_emission():
             for emission in [Model.emission_1, Model.emission_2, Model.emission_3]
         ]
     )
-    joined_result = spectral_time_resolved_emission(
+    joined_result = spectral_time_resolved(
         sim,
         excitation=delta,
         save_at=np.linspace(0, 5, 20) * ureg.s,
+        kind="emission",
         join_by_energy=True,
     )
     assert set(joined_result.data_vars.keys()) == set(
         ["1 electron_volt", "2 electron_volt"]
     )
 
-    non_spectral = time_resolved_emission(
+    non_spectral = time_resolved(
         sim,
         excitation=delta,
         save_at=np.linspace(0, 5, 20) * ureg.s,
+        kind="emission",
     )
     assert np.all(
         np.asarray(non_spectral.to_array())
@@ -154,9 +152,10 @@ def test_time_resolved_emission():
 
 
 def test_steady_state_emission():
-    result = spectral_steady_state_emission(
+    result = spectral_steady_state(
         sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+        kind="emission",
     )
 
     assert set([str(emission) for emission in result.data_vars.keys()]) == set(
@@ -166,17 +165,19 @@ def test_steady_state_emission():
         ]
         + ["event"]
     )
-    joined_result = spectral_steady_state_emission(
+    joined_result = spectral_steady_state(
         sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+        kind="emission",
         join_by_energy=True,
     )
     assert set(joined_result.data_vars.keys()) == set(
         ["1 electron_volt", "2 electron_volt"]
     )
-    non_spectral = steady_state_emission(
+    non_spectral = steady_state(
         sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+        kind="emission",
     )
     assert np.all(
         np.asarray(non_spectral.to_array())
@@ -185,9 +186,10 @@ def test_steady_state_emission():
 
 
 def test_emission_spectra():
-    result = emission_spectra(
+    result = spectra(
         sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+        kind="emission",
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
@@ -205,10 +207,11 @@ def test_emission_spectra():
 def test_time_resolved_absorption():
     delta = delta_excitation(Model.absorption_3, start=0 * ureg.s, area=1 / ureg.cm**2)
 
-    result = spectral_time_resolved_absorption(
+    result = spectral_time_resolved(
         sim,
         excitation=delta,
         save_at=np.linspace(0, 5, 20) * ureg.s,
+        kind="absorption",
     )
     assert set([str(absorption) for absorption in result.data_vars.keys()]) == set(
         [
@@ -216,20 +219,22 @@ def test_time_resolved_absorption():
             for absorption in [Model.absorption_1, Model.absorption_2, Model.absorption_3]
         ]
     )
-    joined_result = spectral_time_resolved_absorption(
+    joined_result = spectral_time_resolved(
         sim,
         excitation=delta,
         save_at=np.linspace(0, 5, 20) * ureg.s,
+        kind="absorption",
         join_by_energy=True,
     )
     assert set(joined_result.data_vars.keys()) == set(
         ["1 electron_volt", "2 electron_volt"]
     )
 
-    non_spectral = time_resolved_absorption(
+    non_spectral = time_resolved(
         sim,
         excitation=delta,
         save_at=np.linspace(0, 5, 20) * ureg.s,
+        kind="absorption",
     )
     assert np.all(
         np.asarray(non_spectral.to_array())
@@ -238,9 +243,10 @@ def test_time_resolved_absorption():
 
 
 def test_steady_state_absorption():
-    result = spectral_steady_state_absorption(
+    result = spectral_steady_state(
         sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+        kind="absorption",
     )
 
     assert set([str(absorption) for absorption in result.data_vars.keys()]) == set(
@@ -250,17 +256,19 @@ def test_steady_state_absorption():
         ]
         + ["event"]
     )
-    joined_result = spectral_steady_state_absorption(
+    joined_result = spectral_steady_state(
         sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+        kind="absorption",
         join_by_energy=True,
     )
     assert set(joined_result.data_vars.keys()) == set(
         ["1 electron_volt", "2 electron_volt"]
     )
-    non_spectral = steady_state_absorption(
+    non_spectral = steady_state(
         sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+        kind="absorption",
     )
     assert np.all(
         np.asarray(non_spectral.to_array())
@@ -269,9 +277,10 @@ def test_steady_state_absorption():
 
 
 def test_absorption_spectra():
-    result = absorption_spectra(
+    result = spectra(
         sim,
         excitation={Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)},
+        kind="absorption",
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
