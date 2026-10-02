@@ -124,7 +124,7 @@ def test_time_resolved_emission():
     )
     assert set([str(emission) for emission in result.data_vars.keys()]) == set(
         [
-            "line_" + str(emission)
+            "emission_" + str(emission)
             for emission in [Model.emission_1, Model.emission_2, Model.emission_3]
         ]
     )
@@ -160,7 +160,7 @@ def test_steady_state_emission():
 
     assert set([str(emission) for emission in result.data_vars.keys()]) == set(
         [
-            "line_" + str(emission)
+            "emission_" + str(emission)
             for emission in [Model.emission_1, Model.emission_2, Model.emission_3]
         ]
         + ["event"]
@@ -215,7 +215,7 @@ def test_time_resolved_absorption():
     )
     assert set([str(absorption) for absorption in result.data_vars.keys()]) == set(
         [
-            "line_" + str(absorption)
+            "absorption_" + str(absorption)
             for absorption in [Model.absorption_1, Model.absorption_2, Model.absorption_3]
         ]
     )
@@ -251,7 +251,7 @@ def test_steady_state_absorption():
 
     assert set([str(absorption) for absorption in result.data_vars.keys()]) == set(
         [
-            "line_" + str(absorption)
+            "absorption_" + str(absorption)
             for absorption in [Model.absorption_1, Model.absorption_2, Model.absorption_3]
         ]
         + ["event"]

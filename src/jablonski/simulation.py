@@ -153,7 +153,7 @@ def spectral_time_resolved(
 def spectral_steady_state(
     sim: Simulator,
     excitation: Excitation,
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     join_by_energy: bool = False,
 ) -> xr.Dataset:
     """Steady state spectral simulation."""
@@ -194,6 +194,29 @@ def steady_state(
     summed = spectral.to_array().sum(dim="variable")
     name = "absorption" if kind == "absorption" else "emission"
     return summed.to_dataset(name=name)
+
+def quantum_yield(
+    sim: Simulator,
+    excitation: Excitation,
+    kind: util.SpectraKind = "emission",
+) -> xr.DataArray:
+    """Calculate the steady-state quantum yield."""
+    if kind == "absorption":
+        raise ValueError(
+            "kind for quantum_yield must be 'emission', 'fluorescence', or 'phosphorescence', not 'absorption'"
+        )
+    ss = spectral_steady_state(sim, excitation, kind=("absorption", kind))
+    absorptions = [da for line, da in ss.data_vars.items() if line.startswith("absorption_")]
+    emissions = [da for line, da in ss.data_vars.items() if line.startswith("emission_")]
+
+    emission = xr.concat(emissions, dim="temp").sum(dim="temp")
+    absorption = xr.concat(absorptions, dim="temp").sum(dim="temp")
+
+    qy = (emission / absorption).pint.to(ureg.dimensionless)
+    qy.name = "quantum_yield"
+    qy.attrs.clear()
+    return qy
+
 
 
 def spectra(

@@ -89,8 +89,8 @@ def rebop_piecewise(
     ureg.force_ndarray_like = False
     return ds
 
-def rebop_spectral_time_resolved_emission(
-    sim: Simulator,
+def rebop_spectral_time_resolved(
+    sim: RebopSimulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
     upto_t: pint.Quantity,
     n_points: int | None = None,
@@ -98,18 +98,22 @@ def rebop_spectral_time_resolved_emission(
     kind: util.SpectraKind = "emission",
     rng: RNGLike | SeedLike | None = None,
     sparse: bool = True,
-    var_names: Iterable[Reactant] | None = None,   
+    var_names: Iterable[Reactant] | None = None,
 ) -> xr.Dataset:
-    """Single transition square excitation."""
-    lines = {
-        f"line_{transition}": transition
-        for transition in util.emission_transitions(sim.model, kind=kind)
-    }
-
-    transform = {k: v.radiative_decay.rate_law for k, v in lines.items()}
-
+    """Time resolved spectral simulation using Rebop."""
+    lines, transform = util.lines_and_transform(sim.model, kind=kind)
     sim = sim.with_transform(transform, append=True)
-    ds = rebop_piecewise(sim, events=excitation, upto_t=upto_t, n_points=n_points, rng=rng, sparse=sparse, var_names=var_names)
+
+    ds = rebop_piecewise(
+        sim,
+        events=excitation,
+        upto_t=upto_t,
+        n_points=n_points,
+        rng=rng,
+        sparse=sparse,
+        var_names=var_names,
+    )
+
     if not join_by_energy:
         for line in lines:
             ds.attrs[line] = lines[line].energy_difference
@@ -117,7 +121,8 @@ def rebop_spectral_time_resolved_emission(
     else:
         return lines_to_energies(lines, ds)
 
-def rebop_time_resolved_emission(
+
+def rebop_time_resolved(
     sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
     upto_t: pint.Quantity,
@@ -125,11 +130,21 @@ def rebop_time_resolved_emission(
     kind: util.SpectraKind = "emission",
     rng: RNGLike | SeedLike | None = None,
     sparse: bool = True,
-    var_names: Iterable[Reactant] | None = None,   
-):
-    spectral = rebop_spectral_time_resolved_emission(sim, excitation = excitation, upto_t = upto_t, n_points = n_points, kind= kind, rng = rng, sparse = sparse, var_names = var_names)
+    var_names: Iterable[Reactant] | None = None,
+) -> xr.Dataset:
+    spectral = rebop_spectral_time_resolved(
+        sim,
+        excitation=excitation,
+        upto_t=upto_t,
+        n_points=n_points,
+        kind=kind,
+        rng=rng,
+        sparse=sparse,
+        var_names=var_names,
+    )
     summed = spectral.to_array().sum(dim="variable")
-    return summed.to_dataset(name="emission")
+    name = "absorption" if kind == "absorption" else "emission"
+    return summed.to_dataset(name=name)
 
 
 
@@ -144,4 +159,56 @@ def distribute_points(upto_ts: Sequence[np.float64], n_points: int) -> Sequence[
     # in next line once numpy 2.5.0 is not so new
     points[order[-leftover:]] += 1
     return points.astype(int)
+
+
+# =============================================================================
+# Backward Compatibility Wrappers
+# =============================================================================
+
+
+def rebop_spectral_time_resolved_emission(
+    sim: Simulator,
+    excitation: dict[Time, Mapping[Components, Initial | Real | None]],
+    upto_t: pint.Quantity,
+    n_points: int | None = None,
+    join_by_energy: bool = False,
+    kind: util.SpectraKind = "emission",
+    rng: RNGLike | SeedLike | None = None,
+    sparse: bool = True,
+    var_names: Iterable[Reactant] | None = None,
+) -> xr.Dataset:
+    return rebop_spectral_time_resolved(
+        sim=sim,
+        excitation=excitation,
+        upto_t=upto_t,
+        n_points=n_points,
+        join_by_energy=join_by_energy,
+        kind=kind,
+        rng=rng,
+        sparse=sparse,
+        var_names=var_names,
+    )
+
+
+def rebop_time_resolved_emission(
+    sim: Simulator,
+    excitation: dict[Time, Mapping[Components, Initial | Real | None]],
+    upto_t: pint.Quantity,
+    n_points: int | None = None,
+    kind: util.SpectraKind = "emission",
+    rng: RNGLike | SeedLike | None = None,
+    sparse: bool = True,
+    var_names: Iterable[Reactant] | None = None,
+):
+    return rebop_time_resolved(
+        sim=sim,
+        excitation=excitation,
+        upto_t=upto_t,
+        n_points=n_points,
+        kind=kind,
+        rng=rng,
+        sparse=sparse,
+        var_names=var_names,
+    )
+
 

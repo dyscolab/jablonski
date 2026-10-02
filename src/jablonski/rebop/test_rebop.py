@@ -26,7 +26,11 @@ from ..transitions import (
     IntersystemCrossing,
     Phosphorescence,
 )
-from .rebop import rebop_piecewise, rebop_spectral_time_resolved_emission, rebop_time_resolved_emission
+from .rebop import (
+    rebop_piecewise,
+    rebop_spectral_time_resolved,
+    rebop_time_resolved,
+)
 
 ureg = pint.get_application_registry()
 
@@ -93,7 +97,7 @@ def test_rebop_simulation():
 
 
 def test_rebop_time_resolved_emission():
-    result = rebop_spectral_time_resolved_emission(
+    result = rebop_spectral_time_resolved(
         rsim,
         excitation=delta|pulse,
         upto_t= 100* ureg.ns,
@@ -103,11 +107,11 @@ def test_rebop_time_resolved_emission():
     assert result.time.pint.units == ureg.ns
     assert set([str(emission) for emission in result.data_vars.keys()]) == set(
         [
-            "line_" + str(emission)
+            "emission_" + str(emission)
             for emission in [Model.emission_1, Model.emission_3]
         ]
     )
-    joined_result = rebop_spectral_time_resolved_emission(
+    joined_result = rebop_spectral_time_resolved(
         rsim,
         excitation=delta|pulse,
         upto_t= 100* ureg.ns,
@@ -120,7 +124,7 @@ def test_rebop_time_resolved_emission():
         ["3 electron_volt", "2 electron_volt"]
     )
 
-    non_spectral = rebop_time_resolved_emission(
+    non_spectral = rebop_time_resolved(
         rsim,
         excitation=delta|pulse,
         upto_t= 100* ureg.ns,

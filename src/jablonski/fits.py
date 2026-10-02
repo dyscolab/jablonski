@@ -9,7 +9,7 @@ from poincare.types import Initial, Number
 import xarray as xr
 
 from . import util
-from ._typing import Excitation, RadiativeDecay
+from ._typing import Excitation, RadiativeDecay, Pumper
 from ._units import ureg
 from .simulation import (
     Time,
@@ -85,7 +85,15 @@ def make_time_resolved_target(
             if join_by_energy:
                 key = str(key.energy_difference)
             else:
-                key = "line_" + str(key)
+                prefix = (
+                    "emission_"
+                    if isinstance(key, RadiativeDecay)
+                    else ("absorption_" if isinstance(key, Pumper) else "")
+                )
+                if prefix and not str(key).startswith(prefix):
+                    key = prefix + str(key)
+                else:
+                    key = str(key)
             if isinstance(value, pint.Quantity):
                 units_map[key] = value.units
                 dequantified_value = value.magnitude

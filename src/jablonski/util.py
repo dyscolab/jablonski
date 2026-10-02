@@ -8,8 +8,9 @@
     :license: BSD, see LICENSE for more details.
 """
 
+from collections.abc import Generator, Iterable
 from types import UnionType
-from typing import Any, Literal, TypeAlias, Generator
+from typing import Any, Literal, TypeAlias
 
 import pint
 from pint.facets.plain import PlainQuantity
@@ -30,50 +31,40 @@ ureg = pint.get_application_registry()
 
 SpectraKind = Literal["emission", "fluorescence", "phosphorescence", "absorption"]
 
+TYPE_MAP = {
+    "emission": RadiativeDecay,
+    "fluorescence": Fluorescence,
+    "phosphorescence": Phosphorescence,
+    "absorption": Pumper,
+}
+REVERSE_TYPE_MAP = {v: k for k, v in TYPE_MAP.items()}
 
-def excitation_transitions(
+def yield_transitions(
     system: SpectroscopicSystem,
-) -> Generator[Pumper, None, None]:
-    for transition in system._yield(Pumper):
-        yield transition
-
-
-def emission_transitions(
-    system: SpectroscopicSystem,
-    kind: SpectraKind = "emission",
-) -> Generator[RadiativeDecay, None, None]:
-    if kind == "emission":
-        include = (Fluorescence, Phosphorescence)
-    elif kind == "fluorescence":
-        include = Fluorescence
-    elif kind == "phosphorescence":
-        include = Phosphorescence
-    else:
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
+) -> Generator[RadiativeDecay | Pumper, None, None]:
+    if isinstance(kind, str):
+        kind = [kind]
+    try:
+        include = tuple(TYPE_MAP[k] for k in kind)
+    except KeyError:
         raise ValueError(f"kind must be {SpectraKind}")
 
     for transition in system._yield(include):
-        if isinstance(transition, RadiativeDecay):
-            yield transition
+        yield transition
 
 def lines_and_transform(
     system: SpectroscopicSystem,
-    kind: SpectraKind = "emission",
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    if kind == "absorption":
-        lines = {
-            f"line_{transition}": transition
-            for transition in excitation_transitions(system)
-        }
-        transform = {k: v.absorption.rate_law for k, v in lines.items()}
-    elif kind in ("emission", "fluorescence", "phosphorescence"):
-        lines = {
-            f"line_{transition}": transition
-            for transition in emission_transitions(system, kind=kind)
-        }
-        transform = {k: v.radiative_decay.rate_law for k, v in lines.items()}
-    else:
-        raise ValueError(f"kind must be {SpectraKind}")
-
+    lines = {
+        f"{"emission_" if isinstance(transition, RadiativeDecay) else "absorption_"}{transition}": transition
+        for transition in yield_transitions(system=system, kind=kind)
+    }
+    transform = {
+        k: v.radiative_decay.rate_law if isinstance(v, RadiativeDecay) else v.absorption.rate_law
+        for k, v in lines.items()
+    }
     return lines, transform
 
 

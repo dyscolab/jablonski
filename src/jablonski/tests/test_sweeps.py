@@ -1,4 +1,5 @@
 import numpy as np
+import xarray as xr
 
 from jablonski import (
     SingletState,
@@ -7,7 +8,9 @@ from jablonski import (
 )
 from poincare import Simulator
 
-from ..sweeps import sweep_spectra, sweep_spectral_steady_state
+from ..simulation import quantum_yield
+from ..helpers import pump_from_laser
+from ..sweeps import sweep_quantum_yield, sweep_spectra, sweep_spectral_steady_state
 from ..transitions import Absorption, Fluorescence
 from ..util import ureg
 
@@ -50,3 +53,53 @@ def test_sweep_emission_spectra():
         / (ureg.cm**2 * ureg.s)
         == values
     )
+
+
+def test_sweep_quantum_yield():
+    values = np.linspace(1e10, 1e20, 5) / (ureg.cm**2 * ureg.s)
+    excitations = [{Model.absorption_1: value} for value in values]
+    sweep = sweep_quantum_yield(sim, excitations=excitations)
+
+    assert sweep.pint.units == ureg.dimensionless
+    assert sweep.coords["excitation"].pint.units == ureg.Unit("1 / (cm**2 * s)")
+    np.testing.assert_allclose(
+        sweep.coords["excitation"].pint.dequantify().values,
+        values.magnitude,
+    )
+
+    expected_values = [
+        quantum_yield(sim, excitation=exc).pint.dequantify().values.item()
+        for exc in excitations
+    ]
+    np.testing.assert_allclose(
+        sweep.pint.dequantify().values,
+        expected_values,
+    )
+    custom_keys = ["a", "b", "c", "d", "e"]
+    sweep_custom = sweep_quantum_yield(sim, excitations=excitations, keys=custom_keys)
+    assert isinstance(sweep_custom, xr.DataArray)
+    assert sweep_custom.dims == ("excitation",)
+    assert list(sweep_custom.coords["excitation"].values) == custom_keys
+    np.testing.assert_allclose(
+        sweep_custom.pint.dequantify().values,
+        expected_values,
+    )
+
+    powers = np.logspace(-3, 1, 50) * ureg.W
+    excitations = [
+        pump_from_laser(
+            system=Model,
+            power=power,
+            wavelength=500 * ureg.nm,
+            width=1 * ureg.um,
+            linewidth=500 * ureg.nm,
+        )
+        for power in powers
+    ]
+    sweep_powers = sweep_quantum_yield(sim, excitations=excitations, keys=powers)
+    assert sweep_powers.coords["excitation"].pint.units == powers.units
+    np.testing.assert_allclose(
+        sweep_powers.coords["excitation"].pint.dequantify().values,
+        powers.magnitude,
+    )
+
