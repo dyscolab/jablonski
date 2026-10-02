@@ -198,6 +198,8 @@ def test_emission_spectra():
         ]
     )
     assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)
+    assert result.pint.units == ureg.Unit("1/s")
+    assert result.coords["wavelenght"].pint.units == ureg.nm
 
 
 def test_time_resolved_absorption():
@@ -280,3 +282,5 @@ def test_absorption_spectra():
         ]
     )
     assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)
+    assert result.pint.units == ureg.Unit("1/s")
+    assert result.coords["wavelenght"].pint.units == ureg.nm

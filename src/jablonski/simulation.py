@@ -201,20 +201,27 @@ def emission_spectra(
             for energy in spectral.data_vars.keys()
         ]
     )
+    first_var = next(iter(spectral.data_vars.values()), None)
+    data_unit = first_var.pint.units if first_var is not None else None
     import pint_xarray
 
     da = xr.DataArray(
         data=np.array(
             [
-                spectral[energy].pint.dequantify().values.item()
+                (
+                    spectral[energy].pint.to(data_unit).pint.dequantify().values.item()
+                    if data_unit is not None
+                    else spectral[energy].pint.dequantify().values.item()
+                )
                 for energy in spectral.data_vars.keys()
             ]
         ),
         dims="wavelenght",
         coords={"wavelenght": wavelenghts},
     ).pint.quantify(
-        {"wavelenght": unit},
-        pint_xarray.setup_registry(unit._REGISTRY),
+        units=data_unit,
+        wavelenght=unit,
+        unit_registry=pint_xarray.setup_registry(unit._REGISTRY),
     )
     unit._REGISTRY.force_ndarray_like = False
     da.name = "spectrum"
@@ -311,20 +318,27 @@ def absorption_spectra(
             for energy in spectral.data_vars.keys()
         ]
     )
+    first_var = next(iter(spectral.data_vars.values()), None)
+    data_unit = first_var.pint.units if first_var is not None else None
     import pint_xarray
 
     da = xr.DataArray(
         data=np.array(
             [
-                spectral[energy].pint.dequantify().values.item()
+                (
+                    spectral[energy].pint.to(data_unit).pint.dequantify().values.item()
+                    if data_unit is not None
+                    else spectral[energy].pint.dequantify().values.item()
+                )
                 for energy in spectral.data_vars.keys()
             ]
         ),
         dims="wavelenght",
         coords={"wavelenght": wavelenghts},
     ).pint.quantify(
-        {"wavelenght": unit},
-        pint_xarray.setup_registry(unit._REGISTRY),
+        units=data_unit,
+        wavelenght=unit,
+        unit_registry=pint_xarray.setup_registry(unit._REGISTRY),
     )
     unit._REGISTRY.force_ndarray_like = False
     da.name = "spectrum"
@@ -352,8 +366,7 @@ def excitation_spectra(
     height: pint.Quantity,
     unit: str | pint.Unit = ureg.nm,
 ):
-    """CW excita    "Simulator",
-tion spectra."""
+    """CW excitation spectra."""
     if isinstance(unit, str):
         unit = ureg[unit]
     if not isinstance(emission, pint.Quantity):
