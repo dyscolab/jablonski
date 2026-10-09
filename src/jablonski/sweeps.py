@@ -23,7 +23,7 @@ def sweep_spectral_steady_state(
     sim: Simulator,
     excitations: Iterable[Excitation],
     keys: Iterable[Hashable] | None = None,
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     join_by_energy: bool = False,
 ):
     ds = xr.Dataset()
@@ -58,7 +58,7 @@ def sweep_spectra(
     excitations: Iterable[Excitation],
     keys: Iterable[Hashable] | None = None,
     unit: str | pint.Unit = ureg.nm,
-    kind: SpectraKind = "emission",
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
 ):
     ds = xr.Dataset()
     if keys is None:
@@ -86,7 +86,7 @@ def sweep_quantum_yield(
     sim: Simulator,
     excitations: Iterable[Excitation],
     keys: Iterable[Hashable] | None = None,
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
 ) -> xr.DataArray:
     excitations = list(excitations)
     if keys is None:
@@ -149,7 +149,7 @@ def sweep_spectral_steady_state_emission(
     sim: Simulator,
     excitations: Iterable[Excitation],
     keys: Iterable[Hashable] | None = None,
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     join_by_energy: bool = False,
 ):
     return sweep_spectral_steady_state(
@@ -166,7 +166,7 @@ def sweep_emission_spectra(
     excitations: Iterable[Excitation],
     keys: Iterable[Hashable] | None = None,
     unit: str | pint.Unit = ureg.nm,
-    kind: SpectraKind = "emission",
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
 ):
     return sweep_spectra(
         sim=sim,

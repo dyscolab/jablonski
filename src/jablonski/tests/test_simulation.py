@@ -15,7 +15,9 @@ from ..simulation import (
     delta_excitation,
     piecewise,
     pulse_excitation,
+    quantum_yield,
     spectra,
+    spectral_quantum_yield,
     spectral_steady_state,
     spectral_time_resolved,
     steady_state,
@@ -293,3 +295,33 @@ def test_absorption_spectra():
     assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)
     assert result.pint.units == ureg.Unit("1/s")
     assert result.coords["wavelenght"].pint.units == ureg.nm
+
+
+def test_spectral_quantum_yield():
+    import pytest
+
+    exc = {Model.absorption_1: 5e10 / (ureg.cm**2 * ureg.s)}
+    result = spectral_quantum_yield(sim, excitation=exc)
+    qy = quantum_yield(sim, excitation=exc)
+
+    assert result.pint.units == ureg.dimensionless
+    assert result.coords["wavelenght"].pint.units == ureg.nm
+    assert result.dims == ("wavelenght",)
+
+    h = constants.h * ureg.J * ureg.s
+    c = constants.c * ureg.m / ureg.s
+    wavelenghts = np.array(
+        [
+            (c * h / radiative.energy_difference).to(ureg.nm).magnitude
+            for radiative in Model._yield(Fluorescence)
+        ]
+    )
+    assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)
+    np.testing.assert_allclose(result.sum().values.item(), qy.values.item())
+
+    # Test kind as list
+    result_fl = spectral_quantum_yield(sim, excitation=exc, kind=["fluorescence"])
+    np.testing.assert_allclose(result_fl.values, result.values)
+
+    with pytest.raises(ValueError):
+        spectral_quantum_yield(sim, excitation=exc, kind="absorption")

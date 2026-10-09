@@ -134,7 +134,7 @@ def spectral_time_resolved(
     sim: Simulator,
     excitation: dict[Time, Excitation],
     save_at: npt.NDArray[np.float64],
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     join_by_energy: bool = False,
 ) -> xr.Dataset:
     """Time resolved spectral simulation."""
@@ -177,7 +177,7 @@ def time_resolved(
     sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
     save_at: npt.NDArray[np.float64],
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
 ):
     spectral = spectral_time_resolved(sim, excitation, save_at, kind=kind)
     summed = spectral.to_array().sum(dim="variable")
@@ -188,7 +188,7 @@ def time_resolved(
 def steady_state(
     sim: Simulator,
     excitation: Excitation,
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
 ):
     spectral = spectral_steady_state(sim, excitation, kind=kind)
     summed = spectral.to_array().sum(dim="variable")
@@ -198,14 +198,19 @@ def steady_state(
 def quantum_yield(
     sim: Simulator,
     excitation: Excitation,
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
 ) -> xr.DataArray:
     """Calculate the steady-state quantum yield."""
-    if kind == "absorption":
+    if isinstance(kind, str):
+        emission_kinds = [kind]
+    else:
+        emission_kinds = list(kind)
+    if "absorption" in emission_kinds:
         raise ValueError(
             "kind for quantum_yield must be 'emission', 'fluorescence', or 'phosphorescence', not 'absorption'"
         )
-    ss = spectral_steady_state(sim, excitation, kind=("absorption", kind))
+    sim_kinds = tuple(["absorption"] + emission_kinds)
+    ss = spectral_steady_state(sim, excitation, kind=sim_kinds)
     absorptions = [da for line, da in ss.data_vars.items() if line.startswith("absorption_")]
     emissions = [da for line, da in ss.data_vars.items() if line.startswith("emission_")]
 
@@ -218,13 +223,72 @@ def quantum_yield(
     return qy
 
 
+def spectral_quantum_yield(
+    sim: Simulator,
+    excitation: Excitation,
+    unit: str | pint.Unit = ureg.nm,
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
+) -> xr.DataArray:
+    """Calculate the steady-state quantum yield per emission."""
+    if isinstance(kind, str):
+        emission_kinds = [kind]
+    else:
+        emission_kinds = list(kind)
+    if "absorption" in emission_kinds:
+        raise ValueError(
+            "kind for quantum_yield must be 'emission', 'fluorescence', or 'phosphorescence', not 'absorption'"
+        )
+    sim_kinds = tuple(dict.fromkeys(["absorption"] + emission_kinds))
+
+    if isinstance(unit, str):
+        unit = ureg[unit]
+    ss = spectral_steady_state(sim, excitation, kind=sim_kinds)
+    absorptions = [da for line, da in ss.data_vars.items() if line.startswith("absorption_")]
+    total_absorption = xr.concat(absorptions, dim="temp").sum(dim="temp")
+
+    lines, _ = util.lines_and_transform(sim.model, kind=emission_kinds)
+    emissions_joined = lines_to_energies(lines, ss)
+
+    h = constants.h * ureg.J * ureg.s
+    c = constants.c * ureg.m / ureg.s
+    wavelenghts = np.array(
+        [
+            (c * h / emissions_joined.attrs[energy]).to(unit).magnitude
+            for energy in emissions_joined.data_vars.keys()
+        ]
+    )
+
+    import pint_xarray
+
+    da = xr.DataArray(
+        data=np.array(
+            [
+                (emissions_joined[energy] / total_absorption)
+                .pint.to(ureg.dimensionless)
+                .pint.dequantify()
+                .values.item()
+                for energy in emissions_joined.data_vars.keys()
+            ]
+        ),
+        dims="wavelenght",
+        coords={"wavelenght": wavelenghts},
+    ).pint.quantify(
+        units=ureg.dimensionless,
+        wavelenght=unit,
+        unit_registry=pint_xarray.setup_registry(unit._REGISTRY),
+    )
+    unit._REGISTRY.force_ndarray_like = False
+    da.name = "spectral_quantum_yield"
+    return da
+
+
 
 def spectra(
     sim: Simulator,
     excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
-    kind: SpectraKind = "emission",
-):
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
+):      
     """CW spectra."""
     if isinstance(unit, str):
         unit = ureg[unit]
@@ -305,7 +369,7 @@ def widened_spectra(
     sim: Simulator,
     excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
-    kind: SpectraKind = "emission",
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
     samples: Iterable[float] = np.linspace(380, 700, 1000),
     width: float = 5,
 ):
@@ -357,7 +421,7 @@ def spectral_time_resolved_emission(
     sim: Simulator,
     excitation: dict[Time, Excitation],
     save_at: npt.NDArray[np.float64],
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     join_by_energy: bool = False,
 ) -> xr.Dataset:
     """Single transition square excitation."""
@@ -369,7 +433,7 @@ def spectral_time_resolved_emission(
 def spectral_steady_state_emission(
     sim: Simulator,
     excitation: Excitation,
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     join_by_energy: bool = False,
 ) -> xr.Dataset:
     return spectral_steady_state(
@@ -381,7 +445,7 @@ def time_resolved_emission(
     sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
     save_at: npt.NDArray[np.float64],
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
 ):
     return time_resolved(sim, excitation, save_at, kind=kind)
 
@@ -389,7 +453,7 @@ def time_resolved_emission(
 def steady_state_emission(
     sim: Simulator,
     excitation: Excitation,
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
 ):
     return steady_state(sim, excitation, kind=kind)
 
@@ -398,7 +462,7 @@ def emission_spectra(
     sim: Simulator,
     excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
-    kind: SpectraKind = "emission",
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
 ):
     """CW emission spectra."""
     return spectra(sim, excitation, unit=unit, kind=kind)
@@ -408,7 +472,7 @@ def widened_emission_spectra(
     sim: Simulator,
     excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
-    kind: SpectraKind = "emission",
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
     samples: Iterable[float] = np.linspace(380, 700, 1000),
     width: float = 5,
 ):

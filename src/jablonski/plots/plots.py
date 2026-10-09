@@ -32,7 +32,7 @@ def graph_spectra(
     sim: Simulator,
     excitation: Excitation,
     unit: str | pint.Unit = ureg.nm,
-    kind: SpectraKind = "emission",
+    kind: SpectraKind | Iterable[SpectraKind] = "emission",
     samples: Iterable[float] = np.linspace(380, 700, 1000),
     width: float = 5,  # TODO: what is the right width?
     figsize: tuple[Number, Number] = (6.4, 4.8),

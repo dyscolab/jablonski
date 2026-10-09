@@ -1,4 +1,4 @@
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any
 
 import pint
@@ -22,7 +22,7 @@ def fit_spectral_time_resolved(
     sim: Simulator,
     results: xr.Dataset,
     excitation: Mapping[Time, Excitation],
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     join_by_energy: bool = False,
     p0: Mapping[
         Components, Initial | tuple[Initial | None, Initial, Initial] | None
@@ -119,7 +119,7 @@ def fit_spectra(
     sim: Simulator,
     results: xr.DataArray,
     excitation: Excitation,
-    kind: util.SpectraKind = "emission",
+    kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     p0: Mapping[
         Components, Initial | tuple[Initial | None, Initial, Initial] | None
     ] = {},  # read only
