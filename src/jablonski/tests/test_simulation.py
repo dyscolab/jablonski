@@ -49,9 +49,9 @@ def test_piecewise():
     )
     result_1 = piecewise(sim, events=pulse, save_at=np.linspace(0, 4e-8, 100) * ureg.s)
     times = result_1.pint.dequantify().indexes["time"].values
-    sim_1_times = times[times < 1e-8] * ureg.s
+    sim_1_times = times[times <= 1e-8] * ureg.s
     result_2_1 = sim.solve(save_at=sim_1_times)
-    sim_2_times = times[(times >= 1e-8) & (times < 3e-8)] * ureg.s
+    sim_2_times = times[(times > 1e-8) & (times <= 3e-8)] * ureg.s
     result_2_2 = sim.with_values(
         {
             Model.absorption_1.pump: 1e10 / (ureg.cm**2 * ureg.s),
@@ -59,15 +59,15 @@ def test_piecewise():
             Model.mid: result_2_1["mid"].values[-1],
             Model.low: result_2_1["low"].values[-1],
         }
-    ).solve(save_at=sim_2_times)
-    sim_3_times = times[times >= 3e-8] * ureg.s
+    ).solve(t_span=(1e-8, 3e-8) * ureg.s, save_at=sim_2_times)
+    sim_3_times = times[times > 3e-8] * ureg.s
     result_2_3 = sim.with_values(
         {
             Model.high: result_2_2["high"].values[-1],
             Model.mid: result_2_2["mid"].values[-1],
             Model.low: result_2_2["low"].values[-1],
         }
-    ).solve(save_at=sim_3_times)
+    ).solve(t_span=(3e-8, times[-1]) * ureg.s, save_at=sim_3_times)
     result_2 = xr.concat(
         [result.pint.dequantify() for result in (result_2_1, result_2_2, result_2_3)],
         dim="time",

@@ -52,27 +52,50 @@ def piecewise(
         raise pint.PintError(
             "save_at must be pint Quantity and have time dimensionality."
         )
-    t_events = np.sort(event_keys)
+    # Events at the same time (e.g. given in different units) are merged.
+    adimensional_events: dict[float, dict] = {}
+    for t_event, excitation in zip(event_keys, events.values()):
+        adimensional_events.setdefault(t_event, {}).update(excitation)
+    t_events = np.array(sorted(adimensional_events))
     adimensional_save_at = np.union1d(adimensional_save_at, t_events)
     pos = np.searchsorted(adimensional_save_at, t_events)
     adimensional_save_ats = np.split(adimensional_save_at, pos + 1)
-    adimensional_t_spans = pairwise(chain((0,), t_events, (adimensional_save_at[-1],)))
-    t_spans = [span * ureg.s for span in adimensional_t_spans]
-    save_ats = [save * ureg.s for save in adimensional_save_ats]
-    dss = []
+    adimensional_t_spans = pairwise(chain((adimensional_save_at[0],), t_events, (adimensional_save_at[-1],)))
+
+    # Zero-length t_spans (events at the start or end) break the solvers:
+    # drop them and join their save_at to the next non-trivial span.
+    segments = []
+    pending = np.empty(0)
+    for t_span, save in zip(adimensional_t_spans, adimensional_save_ats):
+        pending = np.concatenate([pending, save])
+        if t_span[0] != t_span[1]:
+            segments.append((t_span, pending))
+            pending = np.empty(0)
+    if pending.size > 0:
+        t_span, save = segments[-1]
+        segments[-1] = (t_span, np.concatenate([save, pending]))
+
     state = {}
-    for t_span, save_at in zip(t_spans, save_ats):
-        ds = sim.with_values(state).solve(t_span=t_span, save_at=save_at)
-        for k, v in events.get(save_at[-1], {}).items():
+
+    def apply_events(t: float, ds: xr.Dataset | None = None):
+        for k, v in adimensional_events.get(t, {}).items():
             if v is None and k in state:
                 del state[k]
             else:
                 state[k] = v
             # str(k) porque en el output no usamos el objeto Variable aun
             as_str = str(k)
-            if as_str in ds:
+            if ds is not None and as_str in ds:
                 ds[as_str][-1] = v
 
+    # Events at the start of the first span are applied before simulating.
+    apply_events(segments[0][0][0])
+    dss = []
+    for t_span, segment_save_at in segments:
+        ds = sim.with_values(state).solve(
+            t_span=t_span * ureg.s, save_at=segment_save_at * ureg.s
+        )
+        apply_events(t_span[1], ds)
         state.update({k: ds[str(k)][-1].item() for k in sim.compiled.variables})
         dss.append(ds.pint.dequantify())
 
