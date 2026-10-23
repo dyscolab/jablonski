@@ -264,7 +264,7 @@ def spectral_quantum_yield(
     sim_kinds = tuple(dict.fromkeys(["absorption"] + emission_kinds))
 
     if isinstance(unit, str):
-        unit = ureg[unit]
+        unit = ureg.Unit(unit)
     ss = spectral_steady_state(sim, excitation, kind=sim_kinds)
     absorptions = [da for line, da in ss.data_vars.items() if line.startswith("absorption_")]
     total_absorption = xr.concat(absorptions, dim="temp").sum(dim="temp")
@@ -314,7 +314,7 @@ def spectra(
 ):      
     """CW spectra."""
     if isinstance(unit, str):
-        unit = ureg[unit]
+        unit = ureg.Unit(unit)
     spectral = spectral_steady_state(
         sim, excitation, kind=kind, join_by_energy=True
     )
@@ -377,14 +377,14 @@ def excitation_spectra(
 ):
     """CW excitation spectra."""
     if isinstance(unit, str):
-        unit = ureg[unit]
+        unit = ureg.Unit(unit)
     if not isinstance(emission, pint.Quantity):
         emission = emission * unit
-    emission = emission.to(unit).magnitude
+    emission = emission.to(unit)
     matrix = excitation_emission_matrix(
         sim=sim, height=height, unit=unit
     )
-    ds = matrix.sel(wavelenght=emission).drop_vars("wavelenght")
+    ds = matrix.sel(wavelenght=emission, method="nearest").drop_vars("wavelenght")
     return ds.to_dataarray(dim="pumper", name="exitation spectra")
 
 
@@ -398,7 +398,7 @@ def widened_spectra(
 ):
     """CW spectra."""
     if isinstance(unit, str):
-        unit = ureg[unit]
+        unit = ureg.Unit(unit)
     spectral = spectral_steady_state(sim, excitation, kind=kind)
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
@@ -414,12 +414,15 @@ def widened_spectra(
         samples = samples.to(unit).magnitude
 
     spectrum = np.zeros_like(samples, dtype=float)
+    data_unit = next(
+        (spectral[line].pint.units for line in wavelenghts), None
+    )
 
     for line, wavelenght in wavelenghts.items():
         spectrum += gaussian(
             samples,
             wavelenght,
-            spectral[line].values.item(),
+            spectral[line].pint.to(data_unit).pint.dequantify().values.item(),
             width,
         )
 
@@ -429,7 +432,11 @@ def widened_spectra(
         data=spectrum,
         dims="wavelenght",
         coords={"wavelenght": samples},
-    ).pint.quantify(unit, pint_xarray.setup_registry(unit._REGISTRY))
+    ).pint.quantify(
+        units=data_unit,
+        wavelenght=unit,
+        unit_registry=pint_xarray.setup_registry(unit._REGISTRY),
+    )
     unit._REGISTRY.force_ndarray_like = False
     da.name = "spectrum"
     return da
