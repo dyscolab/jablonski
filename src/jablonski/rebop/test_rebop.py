@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import pint
 import xarray as xr
 from poincare.reactions.rebop import RebopSimulator
@@ -136,3 +137,46 @@ def test_rebop_time_resolved_emission():
         np.asarray(non_spectral.to_array())
         == np.asarray(result.to_array().sum(dim="variable"))
     )
+
+def test_rebop_n_runs():
+    kwargs = dict(events=delta | pulse, upto_t=100 * ureg.ns, n_points=200)
+    averaged = rebop_piecewise(rsim, **kwargs, rng=seeds[0], n_runs=20)
+    assert averaged.time.pint.units == ureg.ns
+    assert "run" not in averaged.dims
+
+    # Same seed gives the same average, runs are independent of each other.
+    repeated = rebop_piecewise(rsim, **kwargs, rng=seeds[0], n_runs=20)
+    xr.testing.assert_identical(averaged, repeated)
+    single = rebop_piecewise(rsim, **kwargs, rng=seeds[0], n_runs=1)
+    assert not averaged.pint.dequantify().identical(single.pint.dequantify())
+
+    # The average of many runs approaches the deterministic solution.
+    r_sol = averaged.pint.dequantify()
+    sol = (
+        piecewise(sim, events=delta | pulse, save_at=r_sol.time.values * ureg.ns)
+        .pint.to({"time": ureg.ns})
+        .pint.dequantify()
+    )
+    # Skip event instants, where the ODE output holds values before and after.
+    event_times = [t.m_as(ureg.ns) for t in delta | pulse]
+    t = r_sol.time.values
+    t = t[~np.isclose(t[:, None], event_times).any(axis=1)]
+    np.testing.assert_allclose(
+        r_sol.sel(time=t).to_array().values,
+        sol.sel(time=t, method="nearest").to_array().values,
+        rtol=0.1,
+        atol=5,
+    )
+
+    emission = rebop_time_resolved(
+        rsim,
+        excitation=delta | pulse,
+        upto_t=100 * ureg.ns,
+        n_points=100,
+        rng=seeds[0],
+        n_runs=5,
+    )
+    assert emission.time.pint.units == ureg.ns
+
+    with pytest.raises(ValueError):
+        rebop_piecewise(rsim, **kwargs, n_runs=0)

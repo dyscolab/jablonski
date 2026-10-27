@@ -33,6 +33,7 @@ def rebop_piecewise(
     upto_t: pint.Quantity,
     n_points: int | None = None,
     rng: RNGLike | SeedLike | None = None,
+    n_runs: int = 1,
     sparse: bool = True,
     var_names: Iterable[Reactant] | None = None,
 ) -> xr.Dataset:
@@ -49,10 +50,49 @@ def rebop_piecewise(
         raise pint.PintError(
             "upto_t must be pint Quantity and have time dimensionality."
         )
+    if n_runs < 1:
+        raise ValueError(f"n_runs must be a positive integer, got {n_runs}.")
+
     upto_ts = np.concatenate([event_keys, [adimensional_upto_t]])
     upto_ts = np.sort(upto_ts)
     point_distribution = distribute_points(upto_ts, n_points)
     upto_ts = [t_step * ureg.s for t_step in upto_ts]
+
+    # A single generator is shared by every segment and run so that they draw
+    # independent random streams, even when rng is an integer seed.
+    rng = np.random.default_rng(rng)
+    runs = [
+        _rebop_piecewise_run(
+            rsim,
+            events=events,
+            upto_ts=upto_ts,
+            point_distribution=point_distribution,
+            rng=rng,
+            sparse=sparse,
+            var_names=var_names,
+        )
+        for _ in range(n_runs)
+    ]
+    ds = xr.concat(runs, dim="run").mean(dim="run", keep_attrs=True)
+
+    pint_xarray.setup_registry(ureg)
+    ds = ds.pint.quantify({"time": ureg.s})
+    ds = ds.pint.to({"time": upto_t.units})
+    ureg.force_ndarray_like = False
+    return ds
+
+
+def _rebop_piecewise_run(
+    rsim: RebopSimulator,
+    *,
+    events: dict[Time, Mapping[Components, Initial | Real | None]],
+    upto_ts: Sequence[pint.Quantity],
+    point_distribution: Sequence[int],
+    rng: np.random.Generator,
+    sparse: bool,
+    var_names: Iterable[Reactant] | None,
+) -> xr.Dataset:
+    """Single stochastic realization of rebop_piecewise, dequantified."""
     dss = []
     state = {}
 
@@ -81,13 +121,8 @@ def rebop_piecewise(
             ds = ds.assign_coords(time=ds.time + previous)
         previous = t_step
         dss.append(ds.pint.dequantify())
-    ds = xr.concat(dss, dim="time")
+    return xr.concat(dss, dim="time")
 
-    pint_xarray.setup_registry(ureg)
-    ds = ds.pint.quantify({"time": ureg.s})
-    ds = ds.pint.to({"time": upto_t.units})
-    ureg.force_ndarray_like = False
-    return ds
 
 def rebop_spectral_time_resolved(
     sim: RebopSimulator,
@@ -97,6 +132,7 @@ def rebop_spectral_time_resolved(
     join_by_energy: bool = False,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     rng: RNGLike | SeedLike | None = None,
+    n_runs: int = 1,
     sparse: bool = True,
     var_names: Iterable[Reactant] | None = None,
 ) -> xr.Dataset:
@@ -110,6 +146,7 @@ def rebop_spectral_time_resolved(
         upto_t=upto_t,
         n_points=n_points,
         rng=rng,
+        n_runs=n_runs,
         sparse=sparse,
         var_names=var_names,
     )
@@ -129,6 +166,7 @@ def rebop_time_resolved(
     n_points: int | None = None,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     rng: RNGLike | SeedLike | None = None,
+    n_runs: int = 1,
     sparse: bool = True,
     var_names: Iterable[Reactant] | None = None,
 ) -> xr.Dataset:
@@ -139,6 +177,7 @@ def rebop_time_resolved(
         n_points=n_points,
         kind=kind,
         rng=rng,
+        n_runs=n_runs,
         sparse=sparse,
         var_names=var_names,
     )
@@ -174,6 +213,7 @@ def rebop_spectral_time_resolved_emission(
     join_by_energy: bool = False,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     rng: RNGLike | SeedLike | None = None,
+    n_runs: int = 1,
     sparse: bool = True,
     var_names: Iterable[Reactant] | None = None,
 ) -> xr.Dataset:
@@ -185,6 +225,7 @@ def rebop_spectral_time_resolved_emission(
         join_by_energy=join_by_energy,
         kind=kind,
         rng=rng,
+        n_runs=n_runs,
         sparse=sparse,
         var_names=var_names,
     )
@@ -197,6 +238,7 @@ def rebop_time_resolved_emission(
     n_points: int | None = None,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     rng: RNGLike | SeedLike | None = None,
+    n_runs: int = 1,
     sparse: bool = True,
     var_names: Iterable[Reactant] | None = None,
 ):
@@ -207,6 +249,7 @@ def rebop_time_resolved_emission(
         n_points=n_points,
         kind=kind,
         rng=rng,
+        n_runs=n_runs,
         sparse=sparse,
         var_names=var_names,
     )

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added `n_runs` to all rebop simulation functions to run the stochastic simulation several times and return the average.
+- fix: `rng` in rebop simulations is turned into one generator shared by all piecewise segments, instead of reusing the same seed in each segment.
+
 ## 0.4.0
 
 - Updated poincare dependency to 1.2.0, brings breaking changes in values, transform and simulator API (with_values/transform/simulator instead of as argument) and in switching warning on wrong simulation units to error.
