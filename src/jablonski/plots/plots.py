@@ -1,19 +1,22 @@
-from io import StringIO
+import base64
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from io import BytesIO, StringIO
 from itertools import cycle
-from collections.abc import Sequence, Callable, Iterable, Mapping
 
-from cycler import Cycler
 import matplotlib.pyplot as plt
 import numpy as np
 import pint
+from cycler import Cycler
 from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
 from poincare.printing.latex import Latex, ToLatex, default_packages, default_sections
 from poincare.printing.latex import model_report as _model_report
+from poincare.printing.notebook_display import Markdown, default_notebook_sections
+from poincare.printing.notebook_display import notebook_report as _notebook_report
 from poincare.simulator import Simulator
 
-from .._typing import Drawable, Pumper, RadiativeDecay, Excitation
+from .._typing import Drawable, Excitation, Pumper, RadiativeDecay
 from .._units import ureg
 from ..simulation import widened_emission_spectra
 from ..states import (
@@ -287,13 +290,12 @@ def jablonski_diagram(
 
 
 def jablonski_diagram_section(model: SpectroscopicSystem, latex: ToLatex):
-    backend = plt.get_backend()
-    plt.switch_backend("pgf")
     fig, ax = jablonski_diagram(model, figsize=(6, 4))
-
+    # savefig picks the PGF canvas from the format, so no backend switch is needed.
+    # Closing the figure keeps notebooks from displaying it.
     with StringIO() as plot_buffer:
         fig.savefig(plot_buffer, format="pgf")
-        plt.switch_backend(backend)
+        plt.close(fig)
         return (
             "\\begin{figure}[H]\n\\centering\n"
             + plot_buffer.getvalue()
@@ -310,7 +312,7 @@ def model_report(
     replace_algebraics: bool = False,
     sections: Mapping[
         str, Callable[[SpectroscopicSystem, ToLatex], str]
-    ] = default_sections | {"Jablonski diagram": jablonski_diagram_section},
+    ] = {"Jablonski diagram": jablonski_diagram_section} | default_sections,
     packages: Iterable[str] = default_packages + ["pgf"],
 ) -> Latex | None:
     return _model_report(
@@ -322,6 +324,43 @@ def model_report(
         replace_algebraics=replace_algebraics,
         sections=sections,
         packages=packages,
+    )
+
+
+def jablonski_diagram_markdown(
+    model: SpectroscopicSystem,
+    latex: ToLatex,
+    figsize: tuple[Number, Number] = (6, 6),
+    dpi: Number = 100,
+) -> Markdown:
+    # The image is shown at its pixel size, so figsize * dpi sets its size on screen.
+    fig, ax = jablonski_diagram(model, figsize=figsize)
+    with BytesIO() as plot_buffer:
+        fig.savefig(plot_buffer, format="png", dpi=dpi, bbox_inches="tight")
+        plt.close(fig)
+        encoded = base64.b64encode(plot_buffer.getvalue()).decode("ascii")
+    return f"![Jablonski diagram](data:image/png;base64,{encoded})"
+
+
+def notebook_report(
+    model: type[SpectroscopicSystem],
+    transform: dict | None = None,
+    descriptions: dict | None = None,
+    replace_algebraics: bool = False,
+    sections: Mapping[
+        str, Callable[[SpectroscopicSystem, ToLatex], Markdown]
+    ] = {"Jablonski diagram": jablonski_diagram_markdown} | default_notebook_sections,
+    level: int = 2,
+    show: bool = True,
+) -> Markdown | None:
+    return _notebook_report(
+        model=model,
+        transform=transform,
+        descriptions=descriptions,
+        replace_algebraics=replace_algebraics,
+        sections=sections,
+        level=level,
+        show=show,
     )
 
 
