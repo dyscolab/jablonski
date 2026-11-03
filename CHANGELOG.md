@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `ConstantGroundState`, a `Parameter` with an `energy` (default 0 eV) whose population is held constant. It can replace a singlet or triplet state in any transition and passes both the same- and different-multiplicity checks. Added the `SingletStateLike`, `TripletStateLike` and `SpinStateLike` type aliases for transition states. Requires constant species support in poincare (unreleased).
 - Added `n_runs` to all rebop simulation functions to run the stochastic simulation several times and return the average.
 - fix: `rng` in rebop simulations is turned into one generator shared by all piecewise segments, instead of reusing the same seed in each segment.
 

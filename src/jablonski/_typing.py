@@ -39,5 +39,5 @@ class RadiativeDecay(Protocol):
 
 @runtime_checkable
 class Drawable(Protocol):
-    _source: Variable | Sequence[Variable]
-    _target: Variable | Sequence[Variable]
+    _source: Variable | Parameter | Sequence[Variable | Parameter]
+    _target: Variable | Parameter | Sequence[Variable | Parameter]

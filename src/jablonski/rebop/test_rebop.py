@@ -6,6 +6,7 @@ from poincare.reactions.rebop import RebopSimulator
 
 
 from jablonski import (
+    ConstantGroundState,
     Simulator,
     SingletState,
     SpectroscopicSystem,
@@ -26,6 +27,7 @@ from ..transitions import (
     Fluorescence,
     IntersystemCrossing,
     Phosphorescence,
+    TripletTripletAbsorption,
 )
 from .rebop import (
     rebop_piecewise,
@@ -180,3 +182,28 @@ def test_rebop_n_runs():
 
     with pytest.raises(ValueError):
         rebop_piecewise(rsim, **kwargs, n_runs=0)
+
+
+def test_rebop_constant_ground_state():
+    class ConstantModel(SpectroscopicSystem):
+        ground: ConstantGroundState = ConstantGroundState(default=100)
+        excited: TripletState = initial(2 * ureg.eV, "triplet", default=0)
+
+        absorption = TripletTripletAbsorption(
+            ground=ground,
+            excited=excited,
+            rate=1 * ureg.cm**2,
+            pump=50 / (ureg.cm**2 * ureg.s),
+        )
+        emission = Phosphorescence(excited=excited, ground=ground, rate=1 / ureg.s)
+
+    t = np.linspace(0, 20, 21) * ureg.s
+    ode = Simulator(ConstantModel).solve(save_at=t)
+    stochastic = RebopSimulator(ConstantModel).solve(
+        upto_t=20 * ureg.s, n_points=20, rng=1
+    )
+    # Steady state: pump * rate * ground / k = 5000
+    np.testing.assert_allclose(ode["excited"].values[-1], 5000, rtol=1e-3)
+    np.testing.assert_allclose(
+        stochastic["excited"].values[5:], ode["excited"].values[5:], rtol=0.05
+    )

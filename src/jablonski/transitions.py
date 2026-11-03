@@ -21,10 +21,11 @@ from poincare import Parameter, assign
 from poincare.reactions import MassAction
 
 from jablonski.states import (
-    SingletState,
+    ConstantGroundState,
+    SingletStateLike,
     SpectroscopicSystem,
-    SpinState,
-    TripletState,
+    SpinStateLike,
+    TripletStateLike,
     initial,
 )
 
@@ -48,6 +49,20 @@ def _check_range(obj, attr, mn, mx):
         )
 
 
+def _same_multiplicity(a: SpinStateLike, b: SpinStateLike) -> bool:
+    """A ConstantGroundState matches any multiplicity."""
+    if isinstance(a, ConstantGroundState) or isinstance(b, ConstantGroundState):
+        return True
+    return a.multiplicity == b.multiplicity
+
+
+def _different_multiplicity(a: SpinStateLike, b: SpinStateLike) -> bool:
+    """A ConstantGroundState matches any multiplicity."""
+    if isinstance(a, ConstantGroundState) or isinstance(b, ConstantGroundState):
+        return True
+    return a.multiplicity != b.multiplicity
+
+
 class Absorption(SpectroscopicSystem):
     """A radiative transition from a lower to a higher electronic state
     of a molecule (both singlets).
@@ -55,8 +70,8 @@ class Absorption(SpectroscopicSystem):
     The energy of the photon is converted to the internal energy of the molecule.
     """
 
-    ground: SingletState = initial(0.0, spin_multiplicity="singlet")
-    excited: SingletState = initial(0.0, spin_multiplicity="singlet")
+    ground: SingletStateLike = initial(0.0, spin_multiplicity="singlet")
+    excited: SingletStateLike = initial(0.0, spin_multiplicity="singlet")
 
     # timescale 10^-15 s
     rate: Parameter = assign()
@@ -92,8 +107,8 @@ class TripletTripletAbsorption(SpectroscopicSystem):
     The energy of the photon is converted to the internal energy of the molecule.
     """
 
-    ground: TripletState = initial(0.0, spin_multiplicity="triplet")
-    excited: TripletState = initial(0.0, spin_multiplicity="triplet")
+    ground: TripletStateLike = initial(0.0, spin_multiplicity="triplet")
+    excited: TripletStateLike = initial(0.0, spin_multiplicity="triplet")
 
     # TODO: what is the correct timescale
     rate: Parameter = assign()
@@ -126,8 +141,8 @@ class VibrationalRelaxation(SpectroscopicSystem):
     within the same electronic state.
     """
 
-    high: SpinState = initial(0.0, spin_multiplicity=None)
-    low: SpinState = initial(0.0, spin_multiplicity=None)
+    high: SpinStateLike = initial(0.0, spin_multiplicity=None)
+    low: SpinStateLike = initial(0.0, spin_multiplicity=None)
 
     # timescale 10^-12 s and 10^-10 s
     rate: Parameter = assign()
@@ -146,7 +161,7 @@ class VibrationalRelaxation(SpectroscopicSystem):
     def _check(self, check_range=False):
         if self.energy_difference < 0:
             raise ValueError("High state energy must be higher than low state energy")
-        if self.high.multiplicity != self.low.multiplicity:
+        if not _same_multiplicity(self.high, self.low):
             raise TypeError(
                 "Both states must have the same multiplicity in a vibrational relaxation"
             )
@@ -159,8 +174,8 @@ class InternalConversion(SpectroscopicSystem):
     of the same spin multiplicity.
     """
 
-    high: SpinState = initial(0.0, spin_multiplicity=None)
-    low: SpinState = initial(0.0, spin_multiplicity=None)
+    high: SpinStateLike = initial(0.0, spin_multiplicity=None)
+    low: SpinStateLike = initial(0.0, spin_multiplicity=None)
 
     # timescale 10^-11 s and 10^-9 s, sometimes slower.
     rate: Parameter = assign()
@@ -179,7 +194,7 @@ class InternalConversion(SpectroscopicSystem):
     def _check(self, check_range=False):
         if self.energy_difference < 0:
             raise ValueError("High state energy must be higher than low state energy")
-        if self.high.multiplicity != self.low.multiplicity:
+        if not _same_multiplicity(self.high, self.low):
             raise TypeError(
                 "Both states must have the same multiplicity in an internal conversion"
             )
@@ -192,8 +207,8 @@ class Fluorescence(SpectroscopicSystem):
     of the same spin multiplicity.
     """
 
-    excited: SpinState = initial(0.0, spin_multiplicity=None)
-    ground: SpinState = initial(0.0, spin_multiplicity=None)
+    excited: SpinStateLike = initial(0.0, spin_multiplicity=None)
+    ground: SpinStateLike = initial(0.0, spin_multiplicity=None)
 
     # timescale 10^-10 s and 10^-7 s.
     rate: Parameter = assign()
@@ -214,7 +229,7 @@ class Fluorescence(SpectroscopicSystem):
             raise ValueError(
                 "Excited state energy must be higher than ground state energy"
             )
-        if self.excited.multiplicity != self.ground.multiplicity:
+        if not _same_multiplicity(self.excited, self.ground):
             raise TypeError(
                 "Both states must have the same multiplicity in fluorescence, use Phosphorescence for radiative transitions with different spin multiplicity"
             )
@@ -227,8 +242,8 @@ class IntersystemCrossing(SpectroscopicSystem):
     to electronic states of different spin multiplicity, from singlet to triplet.
     """
 
-    source: SingletState = initial(0.0)
-    target: TripletState = initial(0.0, "triplet")
+    source: SingletStateLike = initial(0.0)
+    target: TripletStateLike = initial(0.0, "triplet")
 
     # timescale 10^−8 s to 10^−3 s
     rate: Parameter = assign()
@@ -260,8 +275,8 @@ class ReverseIntersystemCrossing(SpectroscopicSystem):
     to electronic states of different spin multiplicity, from triple to singlet.
     """
 
-    source: TripletState = initial(0.0, "triplet")
-    target: SingletState = initial(0.0)
+    source: TripletStateLike = initial(0.0, "triplet")
+    target: SingletStateLike = initial(0.0)
 
     # timescale 10^−8 s to 10^−3 s
     rate: Parameter = assign()
@@ -295,8 +310,8 @@ class Phosphorescence(SpectroscopicSystem):
     states of different spin multiplicity.
     """
 
-    excited: SpinState = initial(0.0, spin_multiplicity=None)
-    ground: SpinState = initial(0.0, spin_multiplicity=None)
+    excited: SpinStateLike = initial(0.0, spin_multiplicity=None)
+    ground: SpinStateLike = initial(0.0, spin_multiplicity=None)
 
     # timescale 10^-6 s to 10 s range.
     rate: Parameter = assign()
@@ -316,7 +331,7 @@ class Phosphorescence(SpectroscopicSystem):
             raise ValueError(
                 "Excited state energy must be higher than ground state energy"
             )
-        if self.excited.multiplicity == self.ground.multiplicity:
+        if not _different_multiplicity(self.excited, self.ground):
             raise TypeError(
                 "Both states must have different multiplicity in phosphorescence, use Fluorescence for radiative transitions with the same spin multiplicity"
             )
@@ -325,13 +340,13 @@ class Phosphorescence(SpectroscopicSystem):
 
 
 class EnergyTransferUpconversion(SpectroscopicSystem):
-    sensitizer_high: SpinState = initial(
+    sensitizer_high: SpinStateLike = initial(
         0.0, spin_multiplicity=None
     )  # TODO: should this be a generic SpinState?
-    sensitizer_low: SpinState = initial(0.0, spin_multiplicity=None)
+    sensitizer_low: SpinStateLike = initial(0.0, spin_multiplicity=None)
 
-    activator_high: SpinState = initial(0.0, spin_multiplicity=None)
-    activator_low: SpinState = initial(0.0, spin_multiplicity=None)
+    activator_high: SpinStateLike = initial(0.0, spin_multiplicity=None)
+    activator_low: SpinStateLike = initial(0.0, spin_multiplicity=None)
 
     rate: Parameter = assign()
 

@@ -16,7 +16,12 @@ from poincare.simulator import Simulator
 from .._typing import Drawable, Pumper, RadiativeDecay, Excitation
 from .._units import ureg
 from ..simulation import widened_emission_spectra
-from ..states import SpectroscopicSystem, SpinState
+from ..states import (
+    ConstantGroundState,
+    SpectroscopicSystem,
+    SpinState,
+    SpinStateLike,
+)
 from ..transitions import EnergyTransferUpconversion
 from ..util import SpectraKind
 from .jablonski_diagrams import (
@@ -215,7 +220,7 @@ def jablonski_diagram(
             energy=level.energy.to(unit).magnitude,
             column=get_column(level=level, system=system, columns=columns),
         )
-        for level in system._yield(SpinState)
+        for level in system._yield(SpinState | ConstantGroundState)
     }
     transitions: set[Transition] = set()
     etu_reactions = []
@@ -320,11 +325,15 @@ def model_report(
     )
 
 
-def get_column(level: SpinState, system: SpectroscopicSystem, columns: set) -> str:
+def get_column(level: SpinStateLike, system: SpectroscopicSystem, columns: set) -> str:
+    # A ConstantGroundState has no fixed multiplicity, draw it with the singlets
+    multiplicity = (
+        "singlet" if isinstance(level, ConstantGroundState) else level.multiplicity
+    )
     if level.parent == system:
-        col = level.multiplicity
+        col = multiplicity
     else: 
-        col = f"{level.parent}-{level.multiplicity}"
+        col = f"{level.parent}-{multiplicity}"
     columns.add(col)
     return col
 
