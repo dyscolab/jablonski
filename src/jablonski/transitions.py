@@ -17,7 +17,7 @@ A few rules to make the classes:
 import warnings
 
 import pint
-from poincare import Parameter, assign
+from poincare import Constant, Parameter, assign
 from poincare.reactions import MassAction
 
 from jablonski.states import (
@@ -32,20 +32,49 @@ from jablonski.states import (
 ureg = pint.get_application_registry()
 
 
-def check_all(system=SpectroscopicSystem):
+def check_all(system: SpectroscopicSystem | type[SpectroscopicSystem]) -> None:
+    """Warn about transition rates outside their typical range.
+
+    Every transition in system (including those of subsystems) is checked.
+    Rates given as an expression of other components are not checked.
+    """
     for spectroscopic in system._yield(SpectroscopicSystem):
         spectroscopic._check(check_range=True)
 
 
-def _check_range(obj, attr, mn, mx):
-    rate = getattr(obj, attr)
-    unit = rate.units
+def _resolve_value(value):
+    """Follow linked parameters to the value they hold."""
+    while isinstance(value, Parameter | Constant):
+        value = value.default
+    return value
 
-    if not (mx * unit >= rate >= mn * unit):
+
+def _check_range(obj, attr: str, mn: float, mx: float, unit: pint.Unit = ureg.s**-1):
+    """Warn if the value of obj.<attr> is not between mn and mx (in unit).
+
+    A plain number is taken to be in unit. Expressions are not checked.
+    """
+    value = _resolve_value(getattr(obj, attr))
+    if isinstance(value, pint.Quantity):
+        try:
+            magnitude = value.to(unit).magnitude
+        except pint.DimensionalityError:
+            warnings.warn(
+                f"{obj} {attr} ({value}) does not have the expected units ({unit}).",
+                stacklevel=3,
+            )
+            return
+    elif isinstance(value, int | float):
+        magnitude = value
+    else:
+        return
+
+    low, high = sorted((mn, mx))
+    if not low <= magnitude <= high:
         warnings.warn(
-            "{obj!r} rate ({rate} unit}) is not within "
-            "expected range high ({mn}-{mx} {unit}).",
-            stacklevel=2,
+            f"{obj} {attr} ({value}) is not within the expected range "
+            f"({low:g} to {high:g} {unit:~}).",
+            stacklevel=3,
         )
 
 
@@ -96,7 +125,7 @@ class Absorption(SpectroscopicSystem):
             )
         if check_range:
             _check_range(
-                self, "rate", 1e-14, 1e-16
+                self, "rate", 1e-14, 1e-16, unit=ureg.cm**2
             )  # TODO: what are the correct limits?
 
 
@@ -133,7 +162,7 @@ class TripletTripletAbsorption(SpectroscopicSystem):
             )
         # TODO: what is the correct timescale
         if check_range:
-            _check_range(self, "rate", 1e-14, 1e-16)
+            _check_range(self, "rate", 1e-14, 1e-16, unit=ureg.cm**2)
 
 
 class VibrationalRelaxation(SpectroscopicSystem):

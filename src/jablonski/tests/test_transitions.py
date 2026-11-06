@@ -402,3 +402,51 @@ def test_parameter_is_not_a_state():
             excited = initial(2 * ureg.eV, "singlet", default=0)
 
             transition = Absorption(ground=ground, excited=excited, rate=1 * ureg.cm**2)
+
+
+def _range_model(fluorescence_rate, absorption_rate=1e-15 * ureg.cm**2):
+    class Model(SpectroscopicSystem):
+        k: Parameter = assign(default=fluorescence_rate)
+        S0 = initial(0 * ureg.eV, "singlet", default=1)
+        S1 = initial(2 * ureg.eV, "singlet", default=0)
+        absorption = Absorption(ground=S0, excited=S1, rate=absorption_rate)
+        fluorescence = Fluorescence(excited=S1, ground=S0, rate=k)
+
+    return Model
+
+
+def test_check_all_in_range():
+    import warnings
+
+    from ..transitions import check_all
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        check_all(_range_model(1e8 / ureg.s))
+        # Converted to 1/s before comparing: 1e5 / ms = 1e8 / s
+        check_all(_range_model(1e5 / ureg.ms))
+        # Absorption limits are cross-sections in cm²: 1e-19 m² = 1e-15 cm²
+        check_all(_range_model(1e8 / ureg.s, absorption_rate=1e-19 * ureg.m**2))
+        # Rates that are expressions of other components are not checked
+        check_all(_range_model(2 * Parameter(default=1e3 / ureg.s)))
+
+
+def test_check_all_out_of_range():
+    from ..transitions import check_all
+
+    with pytest.warns(UserWarning, match="fluorescence rate"):
+        check_all(_range_model(1e3 / ureg.s))
+    with pytest.warns(UserWarning, match="absorption rate"):
+        check_all(_range_model(1e8 / ureg.s, absorption_rate=1e-10 * ureg.cm**2))
+
+
+def test_check_all_nested():
+    from ..transitions import check_all
+
+    Inner = _range_model(1e3 / ureg.s)
+
+    class Outer(SpectroscopicSystem):
+        inner = Inner()
+
+    with pytest.warns(UserWarning, match="fluorescence rate"):
+        check_all(Outer)
