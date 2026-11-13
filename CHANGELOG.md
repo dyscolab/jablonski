@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `TripletTripletAnnihilation` (`triplet_1`, `triplet_2`, `singlet_1`, `singlet_2`, `rate`): the mass-action reaction T + T -> S + S, with rate `rate * triplet_1 * triplet_2`. The four states can be different levels (for example T1 + T1 -> S1 + S0), and passing the same state twice gives 2 T -> 2 S. It raises `ValueError` when the singlets' total energy is higher than the triplets'.
 - fix: `model_report` no longer leaves its Jablonski diagram open, so notebooks don't display it under the report, and no longer switches the matplotlib backend, which closed the user's open figures.
 - Added `jablonski.plots.notebook_report` to show a model report with a Jablonski diagram (an embedded PNG image) in marimo or Jupyter notebooks.
 - The Jablonski diagram is now the first section of `model_report` (and of `notebook_report`), before the equations. Requires the modular `notebook_report` in poincare (unreleased).

@@ -15,6 +15,7 @@ from ..transitions import (
     Phosphorescence,
     ReverseIntersystemCrossing,
     TripletTripletAbsorption,
+    TripletTripletAnnihilation,
     VibrationalRelaxation,
 )
 
@@ -339,6 +340,91 @@ def test_energy_transfer_upconversion():
 
     sim = Simulator(Correct)
     sim.solve(save_at=np.array([1, 2, 3]) * ureg.us)
+
+
+def test_triplet_triplet_annihilation():
+    # Same state twice: 2 T -> 2 S
+    class Same(SpectroscopicSystem):
+        t1 = initial(2 * ureg.eV, "triplet", default=10)
+        s1 = initial(1 * ureg.eV, "singlet", default=0)
+
+        transition = TripletTripletAnnihilation(
+            triplet_1=t1, triplet_2=t1, singlet_1=s1, singlet_2=s1, rate=0.1 / ureg.s
+        )
+
+    assert Same.transition.energy_difference == 2 * ureg.eV
+
+    # dT/dt = -2 k T**2, so T = T0 / (1 + 2 k T0 t)
+    t = np.linspace(0, 2, 9) * ureg.s
+    solver = LSODA(rtol=1e-8, atol=1e-10)
+    result = Simulator(Same).with_solver(solver).solve(save_at=t)
+    triplet = 10 / (1 + 2 * 0.1 * 10 * t.m)
+    np.testing.assert_allclose(result["t1"].values, triplet, rtol=1e-5)
+    np.testing.assert_allclose(result["s1"].values, 10 - triplet, rtol=1e-5, atol=1e-8)
+
+    # Different levels: T1 + T1 -> S1 + S0, with S1 above T1 (upconversion)
+    class Upconversion(SpectroscopicSystem):
+        s0 = initial(0 * ureg.eV, "singlet", default=0)
+        s1 = initial(3 * ureg.eV, "singlet", default=0)
+        t1 = initial(2 * ureg.eV, "triplet", default=10)
+
+        transition = TripletTripletAnnihilation(
+            triplet_1=t1, triplet_2=t1, singlet_1=s1, singlet_2=s0, rate=0.1 / ureg.s
+        )
+
+    assert Upconversion.transition.energy_difference == 1 * ureg.eV
+    result = Simulator(Upconversion).with_solver(solver).solve(save_at=t)
+    np.testing.assert_allclose(result["t1"].values, triplet, rtol=1e-5)
+    # Each annihilation consumes two triplets and makes one S1 and one S0
+    for name in ["s0", "s1"]:
+        np.testing.assert_allclose(
+            result[name].values, (10 - triplet) / 2, rtol=1e-5, atol=1e-8
+        )
+
+    # Two different triplets: dTa/dt = dTb/dt = -k Ta Tb
+    class TwoTriplets(SpectroscopicSystem):
+        ta = initial(2 * ureg.eV, "triplet", default=10)
+        tb = initial(2.5 * ureg.eV, "triplet", default=10)
+        s0 = initial(0 * ureg.eV, "singlet", default=0)
+        s1 = initial(3 * ureg.eV, "singlet", default=0)
+
+        transition = TripletTripletAnnihilation(
+            triplet_1=ta, triplet_2=tb, singlet_1=s1, singlet_2=s0, rate=0.1 / ureg.s
+        )
+
+    result = Simulator(TwoTriplets).with_solver(solver).solve(save_at=t)
+    expected = 10 / (1 + 0.1 * 10 * t.m)
+    for name in ["ta", "tb"]:
+        np.testing.assert_allclose(result[name].values, expected, rtol=1e-5)
+
+    with pytest.raises(ValueError):
+
+        class EndothermicAnnihilation(SpectroscopicSystem):
+            t1 = initial(1 * ureg.eV, "triplet", default=10)
+            s0 = initial(0 * ureg.eV, "singlet", default=0)
+            s1 = initial(3 * ureg.eV, "singlet", default=0)
+
+            transition = TripletTripletAnnihilation(
+                triplet_1=t1,
+                triplet_2=t1,
+                singlet_1=s1,
+                singlet_2=s0,
+                rate=0.1 / ureg.s,
+            )
+
+    with pytest.raises(TypeError):
+
+        class WrongMultiplicity(SpectroscopicSystem):
+            t1 = initial(2 * ureg.eV, "singlet", default=10)
+            s1 = initial(1 * ureg.eV, "singlet", default=0)
+
+            transition = TripletTripletAnnihilation(
+                triplet_1=t1,
+                triplet_2=t1,
+                singlet_1=s1,
+                singlet_2=s1,
+                rate=0.1 / ureg.s,
+            )
 
 
 def test_constant_ground_state():

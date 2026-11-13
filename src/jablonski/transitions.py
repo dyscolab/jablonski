@@ -401,3 +401,42 @@ class EnergyTransferUpconversion(SpectroscopicSystem):
 
     def _check(self, check_range=False):
         pass
+
+
+class TripletTripletAnnihilation(SpectroscopicSystem):
+    """A non-radiative transition in which two triplet states
+    annihilate into two singlet states (T + T -> S + S).
+    """
+
+    triplet_1: TripletStateLike = initial(0.0, "triplet")
+    triplet_2: TripletStateLike = initial(0.0, "triplet")
+    singlet_1: SingletStateLike = initial(0.0)
+    singlet_2: SingletStateLike = initial(0.0)
+
+    # TODO: what is the correct timescale
+    rate: Parameter = assign()
+
+    annihilation = MassAction(
+        reactants=[triplet_1, triplet_2], products=[singlet_1, singlet_2], rate=rate
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._source = [self.triplet_1, self.triplet_2]
+        self._target = [self.singlet_1, self.singlet_2]
+
+    @property
+    def energy_difference(self) -> pint.Quantity:
+        return (
+            self.triplet_1.energy
+            + self.triplet_2.energy
+            - self.singlet_1.energy
+            - self.singlet_2.energy
+        )
+
+    def _check(self, check_range=False):
+        if self.energy_difference < 0:
+            raise ValueError(
+                "The triplets' total energy must be at least the singlets' "
+                "in Triplet-Triplet Annihilation"
+            )
