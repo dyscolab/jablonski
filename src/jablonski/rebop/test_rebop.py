@@ -207,3 +207,40 @@ def test_rebop_constant_ground_state():
     np.testing.assert_allclose(
         stochastic["excited"].values[5:], ode["excited"].values[5:], rtol=0.05
     )
+
+
+def test_rebop_times_from_simulator():
+    """upto_t and n_points fall back, independently, to rsim.with_times."""
+    events = delta | pulse
+    timed = rsim.with_times(upto_t=100 * ureg.ns, n_points=50)
+
+    expected = rebop_piecewise(
+        rsim, events=events, upto_t=100 * ureg.ns, n_points=50, rng=1
+    )
+    xr.testing.assert_identical(rebop_piecewise(timed, events=events, rng=1), expected)
+
+    # Each argument falls back on its own.
+    xr.testing.assert_identical(
+        rebop_piecewise(timed, events=events, n_points=20, rng=1),
+        rebop_piecewise(rsim, events=events, upto_t=100 * ureg.ns, n_points=20, rng=1),
+    )
+    xr.testing.assert_identical(
+        rebop_piecewise(
+            rsim.with_times(upto_t=100 * ureg.ns), events=events, n_points=50, rng=1
+        ),
+        expected,
+    )
+
+    xr.testing.assert_identical(
+        rebop_spectral_time_resolved(timed, events, rng=1),
+        rebop_spectral_time_resolved(
+            rsim, events, upto_t=100 * ureg.ns, n_points=50, rng=1
+        ),
+    )
+    xr.testing.assert_identical(
+        rebop_time_resolved(timed, events, rng=1),
+        rebop_time_resolved(rsim, events, upto_t=100 * ureg.ns, n_points=50, rng=1),
+    )
+
+    with pytest.raises(TypeError, match="upto_t"):
+        rebop_piecewise(rsim, events=events, n_points=50)

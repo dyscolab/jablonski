@@ -30,13 +30,26 @@ def rebop_piecewise(
     rsim: RebopSimulator,
     *,
     events: dict[Time, Mapping[Components, Initial | Real | None]],
-    upto_t: pint.Quantity,
+    upto_t: pint.Quantity | None = None,
     n_points: int | None = None,
     rng: RNGLike | SeedLike | None = None,
     n_runs: int = 1,
     sparse: bool = True,
     var_names: Iterable[Reactant] | None = None,
 ) -> xr.Dataset:
+    """Stochastic simulation with excitation ``events`` applied at their times.
+
+    ``upto_t`` and ``n_points`` each default to the value set with
+    ``rsim.with_times``.
+    """
+    if upto_t is None:
+        upto_t = getattr(rsim, "upto_t", None)
+    if n_points is None:
+        n_points = getattr(rsim, "n_points", None)
+    if upto_t is None:
+        raise TypeError(
+            "must provide upto_t, as an argument or with rsim.with_times(upto_t=...)."
+        )
     try:
         event_keys = np.array([key.to(ureg.s).magnitude for key in events.keys()])
     except (AttributeError, pint.DimensionalityError):
@@ -127,7 +140,7 @@ def _rebop_piecewise_run(
 def rebop_spectral_time_resolved(
     sim: RebopSimulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
-    upto_t: pint.Quantity,
+    upto_t: pint.Quantity | None = None,
     n_points: int | None = None,
     join_by_energy: bool = False,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
@@ -162,7 +175,7 @@ def rebop_spectral_time_resolved(
 def rebop_time_resolved(
     sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
-    upto_t: pint.Quantity,
+    upto_t: pint.Quantity | None = None,
     n_points: int | None = None,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     rng: RNGLike | SeedLike | None = None,
@@ -208,7 +221,7 @@ def distribute_points(upto_ts: Sequence[np.float64], n_points: int) -> Sequence[
 def rebop_spectral_time_resolved_emission(
     sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
-    upto_t: pint.Quantity,
+    upto_t: pint.Quantity | None = None,
     n_points: int | None = None,
     join_by_energy: bool = False,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
@@ -234,7 +247,7 @@ def rebop_spectral_time_resolved_emission(
 def rebop_time_resolved_emission(
     sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
-    upto_t: pint.Quantity,
+    upto_t: pint.Quantity | None = None,
     n_points: int | None = None,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     rng: RNGLike | SeedLike | None = None,

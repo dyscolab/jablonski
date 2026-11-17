@@ -13,7 +13,6 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 import pint
 import pint_xarray
 import scipy.constants as constants
@@ -33,12 +32,51 @@ pint.get_application_registry().force_ndarray_like = False
 # When pint-xarray is imported it sets it to true, it can break poincare compilation
 
 
+def _save_at(sim: Simulator, save_at: pint.Quantity | None) -> pint.Quantity:
+    """save_at, or the one set with ``sim.with_times`` when it is None."""
+    if save_at is None:
+        save_at = getattr(sim, "save_at", None)
+    if save_at is None:
+        raise TypeError(
+            "must provide save_at, as an argument or with sim.with_times(save_at=...)."
+        )
+    return save_at
+
+
+def _t_span_in_seconds(sim: Simulator) -> tuple[float, float] | None:
+    """The t_span set with ``sim.with_times``, as magnitudes in seconds."""
+    t_span = getattr(sim, "t_span", None)
+    if t_span is None:
+        return None
+    try:
+        start, end = (t.to(ureg.s).magnitude for t in t_span)
+    except (AttributeError, pint.DimensionalityError):
+        raise pint.PintError(
+            "the simulator's t_span must be a pint Quantity with time dimensionality."
+        )
+    if not start < end:
+        raise ValueError(f"the simulator's t_span must be increasing, got {t_span}.")
+    return float(start), float(end)
+
+
 def piecewise(
     sim: Simulator,
     *,
     events: dict[Time, Excitation],
-    save_at: npt.NDArray[np.float64],
+    save_at: pint.Quantity | None = None,
 ) -> xr.Dataset:
+    """Simulate with excitation ``events`` applied at their times.
+
+    ``save_at`` (a time quantity) defaults to the one set with
+    ``sim.with_times``. Event times are added to the output times.
+
+    The simulation starts at ``save_at[0]``, or at ``t_span[0]`` when a
+    ``t_span`` is set with ``sim.with_times``. The initial values belong to
+    that start time. Every ``save_at`` point and event must lie inside
+    ``t_span``. Nothing is integrated after the last output time.
+    """
+    save_at = _save_at(sim, save_at)
+    sim_t_span = _t_span_in_seconds(sim)
     try:
         event_keys = np.array([key.to(ureg.s).magnitude for key in events.keys()])
     except (AttributeError, pint.DimensionalityError):
@@ -58,9 +96,23 @@ def piecewise(
         adimensional_events.setdefault(t_event, {}).update(excitation)
     t_events = np.array(sorted(adimensional_events))
     adimensional_save_at = np.union1d(adimensional_save_at, t_events)
+    if sim_t_span is None:
+        start = adimensional_save_at[0]
+    else:
+        start = sim_t_span[0]
+        outside = adimensional_save_at[
+            (adimensional_save_at < sim_t_span[0]) | (adimensional_save_at > sim_t_span[1])
+        ]
+        if outside.size > 0:
+            raise ValueError(
+                f"save_at points and event times must be inside the simulator's t_span "
+                f"({sim_t_span[0]} s, {sim_t_span[1]} s); outside: {outside.tolist()} s."
+            )
     pos = np.searchsorted(adimensional_save_at, t_events)
     adimensional_save_ats = np.split(adimensional_save_at, pos + 1)
-    adimensional_t_spans = pairwise(chain((adimensional_save_at[0],), t_events, (adimensional_save_at[-1],)))
+    adimensional_t_spans = pairwise(
+        chain((start,), t_events, (adimensional_save_at[-1],))
+    )
 
     # Zero-length t_spans (events at the start or end) break the solvers:
     # drop them and join their save_at to the next non-trivial span.
@@ -156,7 +208,7 @@ def lines_to_energies(lines: Mapping[str, Any], ds: xr.Dataset) -> xr.Dataset:
 def spectral_time_resolved(
     sim: Simulator,
     excitation: dict[Time, Excitation],
-    save_at: npt.NDArray[np.float64],
+    save_at: pint.Quantity | None = None,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     join_by_energy: bool = False,
 ) -> xr.Dataset:
@@ -199,7 +251,7 @@ def spectral_steady_state(
 def time_resolved(
     sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
-    save_at: npt.NDArray[np.float64],
+    save_at: pint.Quantity | None = None,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
 ):
     spectral = spectral_time_resolved(sim, excitation, save_at, kind=kind)
@@ -450,7 +502,7 @@ def widened_spectra(
 def spectral_time_resolved_emission(
     sim: Simulator,
     excitation: dict[Time, Excitation],
-    save_at: npt.NDArray[np.float64],
+    save_at: pint.Quantity | None = None,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
     join_by_energy: bool = False,
 ) -> xr.Dataset:
@@ -474,7 +526,7 @@ def spectral_steady_state_emission(
 def time_resolved_emission(
     sim: Simulator,
     excitation: dict[Time, Mapping[Components, Initial | Real | None]],
-    save_at: npt.NDArray[np.float64],
+    save_at: pint.Quantity | None = None,
     kind: util.SpectraKind | Iterable[util.SpectraKind] = "emission",
 ):
     return time_resolved(sim, excitation, save_at, kind=kind)

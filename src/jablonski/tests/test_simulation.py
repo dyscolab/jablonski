@@ -1,8 +1,10 @@
 import numpy as np
+import pint
 import scipy.constants as constants
 import xarray as xr
 import pytest
 from poincare import Simulator
+from poincare.solvers import LSODA
 
 from jablonski import (
     SingletState,
@@ -517,3 +519,132 @@ def test_backward_compatibility_wrappers():
         widened_emission_spectra(sim, exc).pint.dequantify(),
         widened_spectra(sim, exc).pint.dequantify(),
     )
+
+
+def test_times_from_simulator():
+    """save_at=None falls back to the save_at set with Simulator.with_times."""
+    save_at = np.linspace(0, 4e-8, 50) * ureg.s
+    pulse = pulse_excitation(
+        excitation={Model.absorption_1: 1e10 / (ureg.cm**2 * ureg.s)},
+        start=1e-8 * ureg.s,
+        width=2e-8 * ureg.s,
+    )
+    timed = sim.with_times(save_at=save_at)
+
+    xr.testing.assert_identical(
+        piecewise(timed, events=pulse), piecewise(sim, events=pulse, save_at=save_at)
+    )
+    xr.testing.assert_identical(
+        spectral_time_resolved(timed, pulse),
+        spectral_time_resolved(sim, pulse, save_at),
+    )
+    xr.testing.assert_identical(
+        time_resolved(timed, pulse, kind="absorption"),
+        time_resolved(sim, pulse, save_at, kind="absorption"),
+    )
+    xr.testing.assert_identical(
+        spectral_time_resolved_emission(timed, pulse),
+        spectral_time_resolved(sim, pulse, save_at),
+    )
+    xr.testing.assert_identical(
+        time_resolved_emission(timed, pulse), time_resolved(sim, pulse, save_at)
+    )
+
+    # An explicit save_at is used instead of the simulator's.
+    other = np.linspace(0, 2e-8, 11) * ureg.s
+    xr.testing.assert_identical(
+        piecewise(timed, events=pulse, save_at=other),
+        piecewise(sim, events=pulse, save_at=other),
+    )
+
+    with pytest.raises(TypeError, match="save_at"):
+        piecewise(sim, events=pulse)
+    with pytest.raises(TypeError, match="save_at"):
+        time_resolved(sim.with_times(t_span=(0, 1) * ureg.s), pulse)
+
+
+class Decay(SpectroscopicSystem):
+    ground: SingletState = initial(0 * ureg.eV, "singlet", default=0)
+    excited: SingletState = initial(2 * ureg.eV, "singlet", default=1)
+    absorption = Absorption(ground=ground, excited=excited, rate=1e-16 * ureg.cm**2)
+    fluorescence = Fluorescence(ground=ground, excited=excited, rate=1e8 / ureg.s)
+
+
+decay_sim = Simulator(Decay).with_solver(LSODA(rtol=1e-10, atol=1e-12))
+
+
+def _at(ds: xr.Dataset, times: np.ndarray) -> xr.Dataset:
+    """Rows of ds at the given times (in seconds)."""
+    return ds.pint.dequantify().isel(time=np.isin(ds.time.values, times))
+
+
+def test_piecewise_starts_at_simulator_t_span():
+    """With a t_span set on the simulator, the initial values belong to t_span[0]."""
+    save_at = np.linspace(10, 50, 21) * ureg.ns
+    t = save_at.to(ureg.s).magnitude
+
+    timed = decay_sim.with_times(t_span=(0, 50) * ureg.ns, save_at=save_at)
+    result = piecewise(timed, events={}).pint.dequantify()
+    np.testing.assert_allclose(result.time.values, t)
+    np.testing.assert_allclose(result["excited"], np.exp(-1e8 * t), rtol=1e-6)
+
+    # Without t_span the run starts at save_at[0], where excited is still 1.
+    late = piecewise(decay_sim.with_times(save_at=save_at), events={}).pint.dequantify()
+    assert late["excited"][0] == 1
+
+    # A tuple of quantities works too.
+    timed_tuple = decay_sim.with_times(t_span=(0 * ureg.ns, 50 * ureg.ns), save_at=save_at)
+    xr.testing.assert_identical(piecewise(timed_tuple, events={}), piecewise(timed, events={}))
+
+
+def test_piecewise_t_span_with_events():
+    """Events before save_at[0] act from t_span[0], as in a full run from 0."""
+    pulse = pulse_excitation(
+        {Decay.absorption: 1e23 / (ureg.cm**2 * ureg.s)},
+        start=1 * ureg.ns,
+        width=2 * ureg.ns,
+    )
+    save_at = np.linspace(10, 50, 21) * ureg.ns
+    t = save_at.to(ureg.s).magnitude
+    full_save_at = np.concatenate([np.linspace(0, 9, 10), save_at.magnitude]) * ureg.ns
+
+    timed = decay_sim.with_times(t_span=(0, 50) * ureg.ns, save_at=save_at)
+    full = decay_sim.with_times(save_at=full_save_at)
+
+    result = piecewise(timed, events=pulse)
+    # Output: the save_at points plus the event times.
+    np.testing.assert_allclose(
+        result.time.values, np.union1d(t, [1e-9, 3e-9]), rtol=1e-12
+    )
+    np.testing.assert_allclose(
+        _at(result, t).to_array(),
+        _at(piecewise(full, events=pulse), t).to_array(),
+        rtol=1e-6,
+    )
+
+    # The functions built on piecewise get the t_span through the simulator.
+    np.testing.assert_allclose(
+        _at(time_resolved(timed, pulse), t).to_array(),
+        _at(time_resolved(full, pulse), t).to_array(),
+        rtol=1e-6,
+    )
+
+
+def test_piecewise_t_span_errors():
+    save_at = np.linspace(10, 50, 5) * ureg.ns
+    pulse = pulse_excitation(
+        {Decay.absorption: 1e23 / (ureg.cm**2 * ureg.s)},
+        start=1 * ureg.ns,
+        width=2 * ureg.ns,
+    )
+
+    with pytest.raises(ValueError, match="outside"):
+        piecewise(decay_sim.with_times(t_span=(20, 50) * ureg.ns, save_at=save_at), events={})
+    with pytest.raises(ValueError, match="outside"):
+        piecewise(decay_sim.with_times(t_span=(0, 40) * ureg.ns, save_at=save_at), events={})
+    with pytest.raises(ValueError, match="outside"):
+        piecewise(decay_sim.with_times(t_span=(5, 50) * ureg.ns, save_at=save_at), events=pulse)
+    with pytest.raises(ValueError, match="increasing"):
+        piecewise(decay_sim.with_times(t_span=(50, 0) * ureg.ns, save_at=save_at), events={})
+    with pytest.raises(pint.PintError):
+        piecewise(decay_sim.with_times(t_span=(0, 1), save_at=save_at), events={})
