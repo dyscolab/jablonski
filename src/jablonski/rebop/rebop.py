@@ -19,7 +19,7 @@ from .. import util
 from .._typing import Pumper, Time
 from .._units import DEFAULT_DELTA, ureg
 from ..states import SpectroscopicSystem
-from ..simulation import lines_to_energies
+from ..simulation import _lines_per_second, lines_to_energies
 from ..util import SpectraKind
 
 pint.get_application_registry().force_ndarray_like = False
@@ -163,6 +163,7 @@ def rebop_spectral_time_resolved(
         sparse=sparse,
         var_names=var_names,
     )
+    ds = _lines_per_second(ds, lines)
 
     if not join_by_energy:
         for line in lines:

@@ -49,7 +49,7 @@ def graph_spectra(
         sim, excitation, unit, kind, samples, width=width
     )
 
-    points = spectra["wavelenght"].values
+    points = spectra["wavelength"].values
     spectrum = spectra.values
     plot_points = np.array([points, spectrum]).T.reshape(-1, 1, 2)
     segments = np.concatenate([plot_points[:-1], plot_points[1:]], axis=1)
@@ -59,7 +59,7 @@ def graph_spectra(
     ax.add_collection(lc)
     ax.set_xlim(points.min(), points.max())
     ax.set_ylim(spectrum.min(), spectrum.max())
-    ax.set_xlabel(f"Wavelenght [ {unit} ]")
+    ax.set_xlabel(f"Wavelength [ {unit} ]")
     ax.set_ylabel("Emission [ photons/s ]")
     return fig, ax
 

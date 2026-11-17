@@ -16,13 +16,13 @@ def pump_from_laser(
     power: pint.Quantity,
     width: pint.Quantity,
 ) -> Excitation:
-    """Creates excitation affecting all pumpers whose corresponding wavelenght is within linewidth of laser wavelenght.
+    """Creates excitation affecting all pumpers whose corresponding wavelength is within linewidth of laser wavelength.
     Photon flux is calculated assuming it is at the peak of a gaussian beam of the corresponding power and width (as standard deviation)."""
     affected_pumpers = []
     for pumper in system._yield(Pumper):
-        pumper_wavelenght = c * h / (pumper.energy_difference)
+        pumper_wavelength = c * h / (pumper.energy_difference)
         if (
-            np.abs((wavelength - pumper_wavelenght).to(ureg.nm).magnitude)
+            np.abs((wavelength - pumper_wavelength).to(ureg.nm).magnitude)
             <= linewidth.to(ureg.nm).magnitude
         ):
             affected_pumpers.append(pumper)

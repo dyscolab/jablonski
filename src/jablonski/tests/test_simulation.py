@@ -9,6 +9,7 @@ from poincare.solvers import LSODA
 from jablonski import (
     SingletState,
     SpectroscopicSystem,
+    TripletState,
     initial,
 )
 from jablonski._typing import Pumper, RadiativeDecay
@@ -36,7 +37,12 @@ from ..simulation import (
     widened_emission_spectra,
     widened_spectra,
 )
-from ..transitions import Absorption, Fluorescence
+from ..transitions import (
+    Absorption,
+    Fluorescence,
+    IntersystemCrossing,
+    Phosphorescence,
+)
 
 
 class Model(SpectroscopicSystem):
@@ -208,15 +214,15 @@ def test_emission_spectra():
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
-    wavelenghts = np.array(
+    wavelengths = np.array(
         [
             (c * h / radiative.energy_difference).to(ureg.nm).magnitude
             for radiative in Model._yield(RadiativeDecay)
         ]
     )
-    assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)
+    assert set(result.pint.dequantify().indexes["wavelength"].values) == set(wavelengths)
     assert result.pint.units == ureg.Unit("1/s")
-    assert result.coords["wavelenght"].pint.units == ureg.nm
+    assert result.coords["wavelength"].pint.units == ureg.nm
 
 
 def test_time_resolved_absorption():
@@ -299,15 +305,15 @@ def test_absorption_spectra():
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
-    wavelenghts = np.array(
+    wavelengths = np.array(
         [
             (c * h / radiative.energy_difference).to(ureg.nm).magnitude
             for radiative in Model._yield(Pumper)
         ]
     )
-    assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)
+    assert set(result.pint.dequantify().indexes["wavelength"].values) == set(wavelengths)
     assert result.pint.units == ureg.Unit("1/s")
-    assert result.coords["wavelenght"].pint.units == ureg.nm
+    assert result.coords["wavelength"].pint.units == ureg.nm
 
 
 def test_spectral_quantum_yield():
@@ -316,18 +322,18 @@ def test_spectral_quantum_yield():
     qy = quantum_yield(sim, excitation=exc)
 
     assert result.pint.units == ureg.dimensionless
-    assert result.coords["wavelenght"].pint.units == ureg.nm
-    assert result.dims == ("wavelenght",)
+    assert result.coords["wavelength"].pint.units == ureg.nm
+    assert result.dims == ("wavelength",)
 
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
-    wavelenghts = np.array(
+    wavelengths = np.array(
         [
             (c * h / radiative.energy_difference).to(ureg.nm).magnitude
             for radiative in Model._yield(Fluorescence)
         ]
     )
-    assert set(result.pint.dequantify().indexes["wavelenght"].values) == set(wavelenghts)
+    assert set(result.pint.dequantify().indexes["wavelength"].values) == set(wavelengths)
     np.testing.assert_allclose(result.sum().values.item(), qy.values.item())
 
     # Test kind as list
@@ -404,7 +410,7 @@ def test_excitation_emission_matrix():
     assert set(result.data_vars.keys()) == set(
         str(pumper) for pumper in Model._yield(Pumper)
     )
-    assert result.coords["wavelenght"].pint.units == ureg.nm
+    assert result.coords["wavelength"].pint.units == ureg.nm
     for pumper in Model._yield(Pumper):
         expected = spectra(sim, excitation={pumper: height}, kind="emission")
         np.testing.assert_allclose(
@@ -418,7 +424,7 @@ def test_excitation_spectra():
     height = 5e10 / (ureg.cm**2 * ureg.s)
     matrix = excitation_emission_matrix(sim, height=height)
 
-    for emission in matrix.pint.dequantify().indexes["wavelenght"].values:
+    for emission in matrix.pint.dequantify().indexes["wavelength"].values:
         result = excitation_spectra(sim, emission=emission, height=height)
         assert result.dims == ("pumper",)
         assert set(result.coords["pumper"].values) == set(matrix.data_vars.keys())
@@ -426,7 +432,7 @@ def test_excitation_spectra():
         for pumper in result.coords["pumper"].values:
             np.testing.assert_allclose(
                 result.sel(pumper=pumper).pint.dequantify().values,
-                matrix[pumper].sel(wavelenght=emission * ureg.nm).pint.dequantify().values,
+                matrix[pumper].sel(wavelength=emission * ureg.nm).pint.dequantify().values,
             )
 
         result_quantity = excitation_spectra(
@@ -438,7 +444,7 @@ def test_excitation_spectra():
         )
 
     # emission is matched to the nearest line, e.g. after unit round-off
-    for emission in matrix.pint.dequantify().indexes["wavelenght"].values:
+    for emission in matrix.pint.dequantify().indexes["wavelength"].values:
         result = excitation_spectra(sim, emission=emission, height=height)
         for shifted in (
             (emission * ureg.nm).to(ureg.um),
@@ -453,12 +459,12 @@ def test_excitation_spectra():
 
     # unit given as a string
     matrix_um = excitation_emission_matrix(sim, height=height, unit="um")
-    for emission in matrix_um.pint.dequantify().indexes["wavelenght"].values:
+    for emission in matrix_um.pint.dequantify().indexes["wavelength"].values:
         result = excitation_spectra(sim, emission=emission, height=height, unit="um")
         for pumper in result.coords["pumper"].values:
             np.testing.assert_allclose(
                 result.sel(pumper=pumper).pint.dequantify().values,
-                matrix_um[pumper].sel(wavelenght=emission * ureg.um).pint.dequantify().values,
+                matrix_um[pumper].sel(wavelength=emission * ureg.um).pint.dequantify().values,
             )
 
 
@@ -469,24 +475,24 @@ def test_widened_spectra():
     lines = spectra(sim, excitation=exc)
 
     assert result.name == "spectrum"
-    assert result.dims == ("wavelenght",)
+    assert result.dims == ("wavelength",)
     assert result.shape == (9001,)
     assert result.pint.units == lines.pint.units
-    assert result.coords["wavelenght"].pint.units == ureg.nm
+    assert result.coords["wavelength"].pint.units == ureg.nm
 
     # Lines are far apart compared to the width, so each peak has the line height.
     widened = result.pint.dequantify()
-    for wavelenght, height in zip(
-        lines.pint.dequantify().indexes["wavelenght"].values,
+    for wavelength, height in zip(
+        lines.pint.dequantify().indexes["wavelength"].values,
         lines.pint.dequantify().values,
     ):
         np.testing.assert_allclose(
-            widened.sel(wavelenght=wavelenght, method="nearest").values,
+            widened.sel(wavelength=wavelength, method="nearest").values,
             height,
             rtol=1e-3,
         )
     np.testing.assert_allclose(
-        widened.sel(wavelenght=800, method="nearest").values, 0, atol=1e-12
+        widened.sel(wavelength=800, method="nearest").values, 0, atol=1e-12
     )
 
 
@@ -648,3 +654,52 @@ def test_piecewise_t_span_errors():
         piecewise(decay_sim.with_times(t_span=(50, 0) * ureg.ns, save_at=save_at), events={})
     with pytest.raises(pint.PintError):
         piecewise(decay_sim.with_times(t_span=(0, 1), save_at=save_at), events={})
+
+
+def test_lines_in_per_second_with_mixed_rate_units():
+    """Lines from rates given in different time units are all returned in 1/s,
+    and their sums and spectra are not taken in the unit of the first line."""
+
+    class Mixed(SpectroscopicSystem):
+        ground: SingletState = initial(0 * ureg.eV, "singlet", default=1)
+        singlet: SingletState = initial(3 * ureg.eV, "singlet", default=0)
+        triplet: TripletState = initial(2 * ureg.eV, "triplet", default=0)
+        absorption = Absorption(ground=ground, excited=singlet, rate=1e-16 * ureg.cm**2)
+        fluorescence = Fluorescence(ground=ground, excited=singlet, rate=0.1 / ureg.ns)
+        isc = IntersystemCrossing(source=singlet, target=triplet, rate=0.1 / ureg.ns)
+        phosphorescence = Phosphorescence(
+            ground=ground, excited=triplet, rate=1 / ureg.us
+        )
+
+    mixed_sim = Simulator(Mixed)
+    excitation = {Mixed.absorption: 1e20 / (ureg.cm**2 * ureg.s)}
+    per_second = ureg.s**-1
+
+    lines = spectral_steady_state(mixed_sim, excitation)
+    for line in ("emission_fluorescence", "emission_phosphorescence"):
+        assert lines[line].pint.units == per_second
+    expected_total = (
+        (lines["emission_fluorescence"] + lines["emission_phosphorescence"])
+        .pint.dequantify()
+        .values
+    )
+
+    total = steady_state(mixed_sim, excitation)["emission"]
+    assert total.pint.units == per_second
+    np.testing.assert_allclose(
+        total.pint.dequantify().values, expected_total, rtol=1e-12
+    )
+
+    spectrum = spectra(mixed_sim, excitation)
+    assert spectrum.pint.units == per_second
+    np.testing.assert_allclose(
+        spectrum.pint.dequantify().values.sum(), expected_total.sum(), rtol=1e-12
+    )
+    assert widened_spectra(mixed_sim, excitation).pint.units == per_second
+
+    resolved = time_resolved(
+        mixed_sim,
+        step_excitation(excitation),
+        save_at=np.linspace(0, 10, 5) * ureg.us,
+    )
+    assert resolved["emission"].pint.units == per_second

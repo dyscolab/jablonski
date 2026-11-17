@@ -28,6 +28,8 @@ from ._units import DEFAULT_DELTA, ureg
 from .states import SpectroscopicSystem
 from .util import SpectraKind
 
+PER_SECOND = ureg.s**-1
+
 pint.get_application_registry().force_ndarray_like = False
 # When pint-xarray is imported it sets it to true, it can break poincare compilation
 
@@ -184,6 +186,18 @@ def delta_excitation(
     return pulse_excitation({excitation_transition: height}, width, start)
 
 
+def _lines_per_second(ds: xr.Dataset, lines: Iterable[str]) -> xr.Dataset:
+    """Convert spectral lines (photon rates) to 1/s.
+
+    Each line otherwise keeps the time unit of its transition's rate (e.g.
+    1/ns for a fluorescence and 1/µs for a phosphorescence), and sums or
+    spectra would take the unit of whichever line comes first.
+    """
+    for line in lines:
+        ds[line] = ds[line].pint.to(PER_SECOND)
+    return ds
+
+
 def lines_to_energies(lines: Mapping[str, Any], ds: xr.Dataset) -> xr.Dataset:
     energies = {}
     for line, transition in lines.items():
@@ -217,6 +231,7 @@ def spectral_time_resolved(
 
     sim = sim.with_transform(transform, append=True)
     ds = piecewise(sim, events=excitation, save_at=save_at)
+    ds = _lines_per_second(ds, lines)
     if not join_by_energy:
         for line in lines:
             ds.attrs[line] = lines[line].energy_difference
@@ -239,7 +254,7 @@ def spectral_steady_state(
     sim = sim.with_values(
         {pumper.pump: height for pumper, height in excitation.items()}
     )
-    ds = steady.solve(sim)
+    ds = _lines_per_second(steady.solve(sim), lines)
     if not join_by_energy:
         for line in lines:
             ds.attrs[line] = lines[line].energy_difference
@@ -326,7 +341,7 @@ def spectral_quantum_yield(
 
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
-    wavelenghts = np.array(
+    wavelengths = np.array(
         [
             (c * h / emissions_joined.attrs[energy]).to(unit).magnitude
             for energy in emissions_joined.data_vars.keys()
@@ -345,11 +360,11 @@ def spectral_quantum_yield(
                 for energy in emissions_joined.data_vars.keys()
             ]
         ),
-        dims="wavelenght",
-        coords={"wavelenght": wavelenghts},
+        dims="wavelength",
+        coords={"wavelength": wavelengths},
     ).pint.quantify(
         units=ureg.dimensionless,
-        wavelenght=unit,
+        wavelength=unit,
         unit_registry=pint_xarray.setup_registry(unit._REGISTRY),
     )
     unit._REGISTRY.force_ndarray_like = False
@@ -372,7 +387,7 @@ def spectra(
     )
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
-    wavelenghts = np.array(
+    wavelengths = np.array(
         [
             (c * h / spectral.attrs[energy]).to(unit).magnitude
             for energy in spectral.data_vars.keys()
@@ -393,11 +408,11 @@ def spectra(
                 for energy in spectral.data_vars.keys()
             ]
         ),
-        dims="wavelenght",
-        coords={"wavelenght": wavelenghts},
+        dims="wavelength",
+        coords={"wavelength": wavelengths},
     ).pint.quantify(
         units=data_unit,
-        wavelenght=unit,
+        wavelength=unit,
         unit_registry=pint_xarray.setup_registry(unit._REGISTRY),
     )
     unit._REGISTRY.force_ndarray_like = False
@@ -436,8 +451,8 @@ def excitation_spectra(
     matrix = excitation_emission_matrix(
         sim=sim, height=height, unit=unit
     )
-    ds = matrix.sel(wavelenght=emission, method="nearest").drop_vars("wavelenght")
-    return ds.to_dataarray(dim="pumper", name="exitation spectra")
+    ds = matrix.sel(wavelength=emission, method="nearest").drop_vars("wavelength")
+    return ds.to_dataarray(dim="pumper", name="excitation spectra")
 
 
 def widened_spectra(
@@ -454,7 +469,7 @@ def widened_spectra(
     spectral = spectral_steady_state(sim, excitation, kind=kind)
     h = constants.h * ureg.J * ureg.s
     c = constants.c * ureg.m / ureg.s
-    wavelenghts = {
+    wavelengths = {
         line: (c * h / energy).to(unit).magnitude
         for line, energy in spectral.attrs.items()
     }
@@ -467,13 +482,13 @@ def widened_spectra(
 
     spectrum = np.zeros_like(samples, dtype=float)
     data_unit = next(
-        (spectral[line].pint.units for line in wavelenghts), None
+        (spectral[line].pint.units for line in wavelengths), None
     )
 
-    for line, wavelenght in wavelenghts.items():
+    for line, wavelength in wavelengths.items():
         spectrum += gaussian(
             samples,
-            wavelenght,
+            wavelength,
             spectral[line].pint.to(data_unit).pint.dequantify().values.item(),
             width,
         )
@@ -482,11 +497,11 @@ def widened_spectra(
 
     da = xr.DataArray(
         data=spectrum,
-        dims="wavelenght",
-        coords={"wavelenght": samples},
+        dims="wavelength",
+        coords={"wavelength": samples},
     ).pint.quantify(
         units=data_unit,
-        wavelenght=unit,
+        wavelength=unit,
         unit_registry=pint_xarray.setup_registry(unit._REGISTRY),
     )
     unit._REGISTRY.force_ndarray_like = False
