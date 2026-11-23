@@ -40,6 +40,7 @@ helpers.
 | `src/jablonski/rebop/` | Stochastic counterparts using `poincare.reactions.rebop.RebopSimulator` | Stochastic runs |
 | `src/jablonski/plots/` | `graph_spectra`, `jablonski_diagram`, `model_report` (extends poincare LaTeX) | Plots and reports |
 | `src/jablonski/helpers.py`, `_units.py` | `pump_from_laser`, shared pint registry and dimension constants | Laser excitation, units |
+| `skill/share/agent-skills/dyscolab-modeling/` | jablonski's part of the agent skill for users (`references/jablonski.md`, `references/jablonski-api.md`, `examples/jablonski_*.py`), installed as wheel data | Changing public API |
 | Tests | `src/jablonski/tests/`, `src/jablonski/rebop/test_rebop.py` | Always |
 
 ## Architecture and core abstractions
@@ -189,7 +190,23 @@ changed files.
 - Give every transition a docstring with its physical meaning and the units
   of `rate`. The comment with the typical timescale should be kept.
 - Keep the `*_emission` wrappers until a maintainer approves removing them.
-  Record API changes in CHANGELOG.md.
+  Record API changes in CHANGELOG.md and in the agent skill (see Agent skill).
+
+## Agent skill
+
+jablonski ships its part of the `dyscolab-modeling` agent skill, which teaches agents to
+*use* the libraries. poincare owns the skill (`SKILL.md`, the installer
+`poincare.skill`), and its AGENTS.md describes the layout. Here:
+
+- `skill/share/agent-skills/dyscolab-modeling/` holds `references/jablonski.md`,
+  `references/jablonski-api.md` (the public API inventory) and `examples/jablonski_*.py`.
+  `[tool.uv.build-backend] data = { data = "skill" }` installs them to
+  `<prefix>/share/agent-skills/dyscolab-modeling/`, next to poincare's files. Name every
+  new file `jablonski*` so it cannot collide with another library's part.
+- `src/jablonski/skill.py` re-exports `poincare.skill` (`python -m jablonski.skill install`).
+- A public API change updates the reference, the inventory and, if a pattern changes, an
+  example, in the same PR. Every example ends with physics assertions and runs in
+  `src/jablonski/tests/test_skill.py`. `conftest.py` keeps pytest from collecting `skill/`.
 
 ## Completion checklist
 
