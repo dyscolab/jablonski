@@ -1,4 +1,8 @@
+import shutil
+
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import pytest
 
 from jablonski import SingletState, SpectroscopicSystem, initial
 from jablonski.plots import model_report, notebook_report
@@ -23,6 +27,10 @@ def test_notebook_report():
     assert not plt.get_fignums()
 
 
+@pytest.mark.skipif(
+    shutil.which(mpl.rcParams["pgf.texsystem"]) is None,
+    reason="the PGF backend needs a TeX installation",
+)
 def test_model_report_closes_its_figure():
     user_fig = plt.figure()
     output = model_report(Model)

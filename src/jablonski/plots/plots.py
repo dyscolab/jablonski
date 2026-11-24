@@ -294,8 +294,10 @@ def jablonski_diagram_section(model: SpectroscopicSystem, latex: ToLatex):
     # savefig picks the PGF canvas from the format, so no backend switch is needed.
     # Closing the figure keeps notebooks from displaying it.
     with StringIO() as plot_buffer:
-        fig.savefig(plot_buffer, format="pgf")
-        plt.close(fig)
+        try:
+            fig.savefig(plot_buffer, format="pgf")
+        finally:
+            plt.close(fig)
         return (
             "\\begin{figure}[H]\n\\centering\n"
             + plot_buffer.getvalue()
